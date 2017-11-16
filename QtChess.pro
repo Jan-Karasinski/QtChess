@@ -25,10 +25,15 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
         main.cpp \
-        mainwindow.cpp
+        mainwindow.cpp \
+    chesspiece.cpp
 
 HEADERS += \
-        mainwindow.h
+        mainwindow.h \
+    chesspiece.h
 
 FORMS += \
         mainwindow.ui
+
+RESOURCES += \
+    resources.qrc

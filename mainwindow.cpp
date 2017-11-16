@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "chesspiece.h"
 #include <QGraphicsRectItem>
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -8,6 +9,9 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     DrawBoard();
+    PlacePieces({ std::make_tuple(index_to_point(0, 0), QPixmap{":/Pieces/rook_black"}, PieceType::Rook, Player::Black),
+                  std::make_tuple(index_to_point(7, 7), QPixmap{":/Pieces/rook_white"}, PieceType::Rook, Player::Black)
+                });
 }
 
 MainWindow::~MainWindow()
@@ -39,4 +43,20 @@ void MainWindow::DrawBoard() {
         // shift colors to right
         color = !color;
     }
+}
+
+void MainWindow::PlacePieces(std::vector<std::tuple<const QPointF&, const QPixmap&, PieceType, Player>> q) {
+    ChessPiece* piece = nullptr;
+    auto* scene = ui->graphicsView->scene();
+    for(auto row : q) {
+        piece = new ChessPiece({0, 0}, std::get<1>(row),
+                               std::get<2>(row), std::get<3>(row), scene);
+        piece->setPos(std::get<0>(row)); // necessary :v
+        piece->setFlag(QGraphicsItem::ItemIsMovable);
+        scene->addItem(std::move(piece));
+    }
+}
+
+QPointF MainWindow::index_to_point(xpos x, ypos y) const noexcept {
+    return {x * BoardSizes::FieldWidth, y * BoardSizes::FieldHeight};
 }
