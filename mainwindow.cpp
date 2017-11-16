@@ -27,10 +27,11 @@ void MainWindow::DrawBoard() {
     bool color = 1; // true = white, false = black;
     for(int y = 0; y < BoardSizes::MaxColSize; ++y){
         for(int x = 0; x < BoardSizes::MaxRowSize; ++x){
-            field = new QGraphicsRectItem(x * BoardSizes::FieldWidth,
-                                          y * BoardSizes::FieldHeight,
+            field = new QGraphicsRectItem(0, 0,
                                           BoardSizes::FieldWidth,
                                           BoardSizes::FieldHeight);
+            field->setPos(x * BoardSizes::FieldWidth,
+                          y * BoardSizes::FieldHeight);
             if(color) {
                 field->setBrush(BoardBrush::White);
             }
@@ -38,7 +39,7 @@ void MainWindow::DrawBoard() {
                 field->setBrush(BoardBrush::Black);
             }
             color = !color;
-            scene->addItem(field);
+            scene->addItem(std::move(field));
         }
         // shift colors to right
         color = !color;

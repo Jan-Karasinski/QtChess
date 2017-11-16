@@ -28,11 +28,9 @@ void ChessPiece::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
            this->pos().x() < 0 ||
            this->pos().y() < 0)
         {
-            qDebug() << "invalid pos";
             this->setPos(lastPos);
         }
         else {
-            qDebug() << "valid pos";
             this->setPos(this->scene->items({this->pos().rx() + (BoardSizes::FieldWidth/2),
                                              this->pos().ry() + (BoardSizes::FieldHeight/2)}
                                             ).last()->pos());
