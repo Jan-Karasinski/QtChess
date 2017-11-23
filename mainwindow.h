@@ -3,21 +3,24 @@
 
 #include <QMainWindow>
 #include <QBrush>
-#include <vector>
+#include <QQueue>
+#include <QPair>
 #include <utility>
 #include <string>
 #include <QPointF>
+#include <QGraphicsItem>
 
 typedef const qreal xpos;
 typedef const qreal ypos;
 
+class King;
+
 enum class PieceType : char {
     King   = 'K', Queen  = 'Q', Rook = 'R',
     Bishop = 'B', Knight = 'H', Pawn = 'P',
-    Empty  = 'E'
 };
 
-enum class Player : char {
+enum Player : char {
     White = 'W', Black = 'B'
 };
 
@@ -25,6 +28,8 @@ namespace BoardSizes {
     constexpr int multiply(int i, int j) {
         return i * j;
     }
+
+    int posToIndex(qreal pos, qreal size) noexcept;
 
     const int MaxColSize  = 8;
     const int MaxRowSize  = 8;
@@ -39,6 +44,14 @@ namespace BoardSizes {
 namespace BoardBrush {
     const QBrush White = QBrush(QColor(Qt::GlobalColor::white));
     const QBrush Black = QBrush(QColor(Qt::GlobalColor::black));
+    const QBrush Highlight = QBrush(QColor(Qt::GlobalColor::red));
+}
+
+namespace GameStatus {
+    extern Player currentPlayer;
+    extern King* whiteKing;
+    extern King* blackKing;
+    extern QQueue<QPair<QGraphicsRectItem*, QBrush>> highlighted;
 }
 
 namespace Ui {
@@ -56,7 +69,7 @@ public:
 private:
     void DrawBoard();
 
-    void PlacePieces(std::vector<std::tuple<const QPointF&, const QPixmap&, PieceType, Player>>);
+    void PlacePieces(std::vector<std::tuple<PieceType, const QPointF&, const QPixmap&, Player>>);
 
     QPointF index_to_point(xpos, ypos) const noexcept;
 
