@@ -3,7 +3,8 @@
 #include <QGraphicsSceneMouseEvent>
 #include <QDebug>
 #include <QGraphicsScene>
-#include <typeinfo>
+#include <algorithm>
+
 bool isEqual(qreal a, qreal b) {
     return std::abs(a-b) <= std::abs(std::min(a, b)) * std::numeric_limits<double>::epsilon();
 }
@@ -24,6 +25,21 @@ bool greaterThan(qreal a, qreal b) {
     return a-b > 0.0 * std::numeric_limits<double>::epsilon();
 }
 
+ChessPiece* canAttack(const QGraphicsItem* field, Player player, const QGraphicsScene* scene) {
+    QRectF rect = {field->pos().x(), field->pos().y(), BoardSizes::FieldWidth, BoardSizes::FieldHeight};
+
+    auto list = scene->items(rect);
+    auto piece = std::find_if(std::begin(list), std::end(list), [player](QGraphicsItem* item) {
+            ChessPiece* piece = dynamic_cast<ChessPiece*>(item);
+            if(piece && piece->player != player){
+                return true;
+            }
+            return false;
+    });
+    return piece == std::end(list) ? nullptr : dynamic_cast<ChessPiece*>(*piece);
+    // return pointer to valid piece(for delete after attack) or nullptr
+}
+
 ChessPiece::ChessPiece(const QPointF& point, const QPixmap& pmap, PieceType t, Player p, QGraphicsScene* s)
     : QGraphicsPixmapItem(pmap),
       lastPos(point),
@@ -35,7 +51,7 @@ ChessPiece::ChessPiece(const QPointF& point, const QPixmap& pmap, PieceType t, P
     setFlag(QGraphicsItem::ItemIsMovable);
 }
 
-ChessPiece *ChessPiece::Create(PieceType t, const QPointF& point, const QPixmap& pmap, Player p, QGraphicsScene* s) {
+ChessPiece* ChessPiece::Create(PieceType t, const QPointF& point, const QPixmap& pmap, Player p, QGraphicsScene* s) {
     switch (t) {
         case PieceType::Pawn:
             return new Pawn(point, pmap, p, s);
@@ -60,6 +76,38 @@ ChessPiece *ChessPiece::Create(PieceType t, const QPointF& point, const QPixmap&
     }
 }
 
+void ChessPiece::mousePressEvent(QGraphicsSceneMouseEvent* event) {
+    if(event->button() & Qt::LeftButton) {
+        if(GameStatus::currentPlayer != player) {
+            event->ignore();
+            return;
+        }
+        setZValue(zValue() + 1);
+        highlight();
+    }
+    QGraphicsPixmapItem::mousePressEvent(event);
+}
+
+void ChessPiece::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
+    if(event->button() & Qt::LeftButton) {
+        dehighlight();
+
+        if(!goodMove()) {
+            setPos(lastPos);
+        }
+        else {
+            setPos(scene->items(
+                       {pos().x() + 0.5*BoardSizes::FieldWidth,
+                        pos().y() + 0.5*BoardSizes::FieldHeight}
+                       ).last()->pos());
+            lastPos = pos();
+            GameStatus::currentPlayer = player == Player::White ? Player::Black : Player::White;
+        }
+        setZValue(zValue() - 1);
+    }
+    QGraphicsPixmapItem::mouseReleaseEvent(event);
+}
+
 void ChessPiece::dehighlight() {
     QPair<QGraphicsRectItem*, QBrush> pair;
     while (!GameStatus::highlighted.empty()) {
@@ -82,6 +130,7 @@ void Pawn::mousePressEvent(QGraphicsSceneMouseEvent* event) {
             return;
         }
 
+        setZValue(zValue() + 1);
         highlight();
 
     }
@@ -104,8 +153,10 @@ void Pawn::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
                                 }).last()->pos());
             lastPos = pos();
             firstMove = 0;
-            //GameStatus::currentPlayer = player == Player::White ? Player::Black : Player::White;
+            GameStatus::currentPlayer = player == Player::White ? Player::Black : Player::White;
         }
+        setZValue(zValue() - 1);
+        qDebug() << zValue();
     }
     QGraphicsPixmapItem::mouseReleaseEvent(event);
 }
@@ -328,38 +379,38 @@ bool Pawn::goodMove() {
             if(newPos.x() == lastPos.x() ||
                isEqual(newPos.x(), lastPos.x()))
             {
-                piece = dynamic_cast<ChessPiece*>(scene->items(
+                piece = canAttack(scene->items(
                             {lastPos.x() + 0.5*BoardSizes::FieldWidth,
                              lastPos.y() - 0.5*BoardSizes::FieldHeight}
-                            ).first());
-                if(!piece || piece == this) {
-                    return true;
+                            ).last(), player, scene);
+                if(!piece) {
+                        return true;
                 }
             }
             // move to left
             else if(newPos.x() == lastPos.x() - BoardSizes::FieldWidth ||
                     isEqual(newPos.x(), lastPos.x() - BoardSizes::FieldWidth))
             {
-                piece = dynamic_cast<ChessPiece*>(scene->items(
+                piece = canAttack(scene->items(
                             {lastPos.x() - 0.5*BoardSizes::FieldWidth,
                              lastPos.y() - 0.5*BoardSizes::FieldHeight}
-                            ).first());
-                if(piece && piece->player != this->player) {
-                    scene->removeItem(piece);
-                    return true;
+                            ).last(), player, scene);
+                if(piece) {
+                        scene->removeItem(piece);
+                        return true;
                 }
             }
             // move to right
             else if(newPos.x() == lastPos.x() + BoardSizes::FieldWidth ||
                     isEqual(newPos.x(), lastPos.x() + BoardSizes::FieldWidth))
             {
-                piece = dynamic_cast<ChessPiece*>(scene->items(
+                piece = canAttack(scene->items(
                             {lastPos.x() + 1.5*BoardSizes::FieldWidth,
                              lastPos.y() - 0.5*BoardSizes::FieldHeight}
-                            ).first());
-                if(piece && piece->player != this->player) {
-                    scene->removeItem(piece);
-                    return true;
+                            ).last(), player, scene);
+                if(piece) {
+                        scene->removeItem(piece);
+                        return true;
                 }
             }
         }
@@ -379,38 +430,38 @@ bool Pawn::goodMove() {
             if(newPos.x() == lastPos.x() ||
                isEqual(newPos.x(), lastPos.x()))
             {
-                piece = dynamic_cast<ChessPiece*>(scene->items(
+                piece = canAttack(scene->items(
                             {lastPos.x() + 0.5*BoardSizes::FieldWidth,
                              lastPos.y() + 1.5*BoardSizes::FieldHeight}
-                            ).first());
-                if(!piece || piece == this) {
-                    return true;
+                            ).last(), player, scene);
+                if(!piece) {
+                        return true;
                 }
             }
             // move to left
             else if(newPos.x() == lastPos.x() - BoardSizes::FieldWidth ||
                     isEqual(newPos.x(), lastPos.x() - BoardSizes::FieldWidth))
             {
-                piece = dynamic_cast<ChessPiece*>(scene->items(
+                piece = canAttack(scene->items(
                             {lastPos.x() - 0.5*BoardSizes::FieldWidth,
                              lastPos.y() + 1.5*BoardSizes::FieldHeight}
-                            ).first());
-                if(piece && piece->player != this->player) {
-                    scene->removeItem(piece);
-                    return true;
+                            ).last(), player, scene);
+                if(piece) {
+                        scene->removeItem(piece);
+                        return true;
                 }
             }
             // move to right
             else if(newPos.x() == lastPos.x() + BoardSizes::FieldWidth ||
                     isEqual(newPos.x(), lastPos.x() + BoardSizes::FieldWidth))
             {
-                piece = dynamic_cast<ChessPiece*>(scene->items(
+                piece = canAttack(scene->items(
                             {lastPos.x() + 1.5*BoardSizes::FieldWidth,
                              lastPos.y() + 1.5*BoardSizes::FieldHeight}
-                            ).first());
-                if(piece && piece->player != this->player) {
-                    scene->removeItem(piece);
-                    return true;
+                            ).last(), player, scene);
+                if(piece) {
+                        scene->removeItem(piece);
+                        return true;
                 }
             }
         }

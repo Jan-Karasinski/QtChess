@@ -101,6 +101,7 @@ void MainWindow::PlacePieces(std::vector<std::tuple<PieceType, const QPointF&, c
                 GameStatus::blackKing = static_cast<King*>(item);
             }
         }
+        item->setZValue(10);
         scene->addItem(item);
     }
 }

@@ -16,8 +16,8 @@ public:
     static ChessPiece* Create(PieceType, const QPointF&, const QPixmap&, Player, QGraphicsScene*);
 
 protected:
-    virtual void mousePressEvent(QGraphicsSceneMouseEvent*) = 0;
-    virtual void mouseReleaseEvent(QGraphicsSceneMouseEvent*) = 0;
+    virtual void mousePressEvent(QGraphicsSceneMouseEvent*);
+    virtual void mouseReleaseEvent(QGraphicsSceneMouseEvent*);
 
     virtual void highlight() = 0;
     void dehighlight();
