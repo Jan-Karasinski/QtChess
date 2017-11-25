@@ -50,7 +50,7 @@ MainWindow::MainWindow(QWidget *parent) :
                  std::make_tuple(PieceType::Pawn,   index_to_point(4, 6), QPixmap{":/Pieces/pawn_white"},   Player::White),
                  std::make_tuple(PieceType::Pawn,   index_to_point(5, 6), QPixmap{":/Pieces/pawn_white"},   Player::White),
                  std::make_tuple(PieceType::Pawn,   index_to_point(6, 6), QPixmap{":/Pieces/pawn_white"},   Player::White),
-                 std::make_tuple(PieceType::Pawn,   index_to_point(7, 6), QPixmap{":/Pieces/pawn_white"},   Player::White),
+                 std::make_tuple(PieceType::Pawn,   index_to_point(7, 6), QPixmap{":/Pieces/pawn_white"},   Player::White)
                 });
 
 }

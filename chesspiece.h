@@ -55,7 +55,6 @@ public:
     Knight(const QPointF&, const QPixmap&, Player, QGraphicsScene*);
 
 private:
-    void mousePressEvent(QGraphicsSceneMouseEvent*) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent*) override;
 
     void highlight() override;
