@@ -55,8 +55,6 @@ public:
     Knight(const QPointF&, const QPixmap&, Player, QGraphicsScene*);
 
 private:
-    void mouseReleaseEvent(QGraphicsSceneMouseEvent*) override;
-
     void highlight() override;
 
     bool goodMove() override;
@@ -68,7 +66,6 @@ public:
     Bishop(const QPointF&, const QPixmap&, Player, QGraphicsScene*);
 
 private:
-    void mousePressEvent(QGraphicsSceneMouseEvent*) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent*) override;
 
     void highlight() override;
