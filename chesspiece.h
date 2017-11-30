@@ -66,8 +66,6 @@ public:
     Bishop(const QPointF&, const QPixmap&, Player, QGraphicsScene*);
 
 private:
-    void mouseReleaseEvent(QGraphicsSceneMouseEvent*) override;
-
     void highlight() override;
 
     bool goodMove() override;
