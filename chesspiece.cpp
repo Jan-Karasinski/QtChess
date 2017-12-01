@@ -538,8 +538,10 @@ void Pawn::highlight() {
 }
 
 bool Pawn::goodMove() {
-    if(pos().x() < 0 || pos().x() > BoardSizes::BoardWidth ||
-       pos().y() < 0 || pos().y() > BoardSizes::BoardHeight)
+    if(pos().x() + 0.5*BoardSizes::FieldWidth < 0 ||
+      (pos().x() + 0.5*BoardSizes::FieldWidth > BoardSizes::BoardWidth) ||
+       pos().y() + 0.5*BoardSizes::FieldHeight < 0 ||
+      (pos().y() + 0.5*BoardSizes::FieldHeight > BoardSizes::BoardHeight))
         return false;
 
     const QPointF& newPos = scene->items({pos().x() + 0.5*BoardSizes::FieldWidth,
@@ -789,9 +791,8 @@ Knight::Knight(const QPointF& point, const QPixmap& pmap, Player p, QGraphicsSce
 
 void Knight::highlight() {
     // left & top
-    if(!(lastPos.x() < 2*BoardSizes::FieldWidth) &&
-       (lastPos.y() > 0 ||
-        greaterThan(lastPos.y(), 0)))
+    if(lastPos.x() >= 2*BoardSizes::FieldWidth &&
+       lastPos.y() > 0)
     {
         auto list = scene->items(
                             {lastPos.x() - 1.5*BoardSizes::FieldWidth,
@@ -807,10 +808,8 @@ void Knight::highlight() {
     }
 
     // left & bottom
-    if((lastPos.x() >= 2*BoardSizes::FieldWidth ||
-        greaterEqual(lastPos.x(), 2*BoardSizes::FieldWidth)) &&
-       (lastPos.y() < BoardSizes::BoardHeight - BoardSizes::FieldHeight ||
-        lessThan(lastPos.y(), BoardSizes::BoardHeight - BoardSizes::FieldHeight)))
+    if(lastPos.x() >= 2*BoardSizes::FieldWidth &&
+       lastPos.y() < BoardSizes::BoardHeight - BoardSizes::FieldHeight)
     {
         auto list = scene->items(
                             {lastPos.x() - 1.5*BoardSizes::FieldWidth,
@@ -826,10 +825,8 @@ void Knight::highlight() {
     }
 
     // top & left
-    if((lastPos.x() >= BoardSizes::FieldWidth ||
-        greaterEqual(lastPos.x(), BoardSizes::FieldWidth)) &&
-       (lastPos.y() >= 2*BoardSizes::FieldHeight ||
-        greaterEqual(lastPos.y(), 2*BoardSizes::FieldWidth)) )
+    if(lastPos.x() >= BoardSizes::FieldWidth &&
+       lastPos.y() >= 2*BoardSizes::FieldHeight)
     {
         auto list = scene->items(
                             {lastPos.x() - 0.5*BoardSizes::FieldWidth,
@@ -845,10 +842,8 @@ void Knight::highlight() {
     }
 
     // top & right
-    if((lastPos.x() < BoardSizes::BoardWidth - BoardSizes::FieldWidth ||
-        lessThan(lastPos.x(), BoardSizes::BoardWidth - BoardSizes::FieldWidth)) &&
-       (lastPos.y() >= 2*BoardSizes::FieldHeight ||
-        greaterEqual(lastPos.y(), 2*BoardSizes::FieldHeight)))
+    if(lastPos.x() < BoardSizes::BoardWidth - BoardSizes::FieldWidth &&
+       lastPos.y() >= 2*BoardSizes::FieldHeight)
     {
         auto list = scene->items(
                             {lastPos.x() + 1.5*BoardSizes::FieldWidth,
@@ -864,10 +859,8 @@ void Knight::highlight() {
     }
 
     // right & top
-    if((lastPos.x() < BoardSizes::BoardWidth - 2*BoardSizes::FieldWidth ||
-        lessThan(lastPos.x(), BoardSizes::BoardWidth - 2*BoardSizes::FieldWidth)) &&
-       (lastPos.y() >= BoardSizes::FieldHeight ||
-        greaterEqual(lastPos.y(), BoardSizes::FieldHeight)))
+    if(lastPos.x() < BoardSizes::BoardWidth - 2*BoardSizes::FieldWidth &&
+       lastPos.y() >= BoardSizes::FieldHeight)
     {
         auto list = scene->items(
                             {lastPos.x() + 2.5*BoardSizes::FieldWidth,
@@ -883,10 +876,8 @@ void Knight::highlight() {
     }
 
     // right & bottom
-    if((lastPos.x() < BoardSizes::BoardWidth - 2*BoardSizes::FieldWidth ||
-        lessThan(lastPos.x(), BoardSizes::BoardWidth - 2*BoardSizes::FieldWidth)) &&
-       (lastPos.y() < BoardSizes::BoardHeight - BoardSizes::FieldHeight ||
-        lessThan(lastPos.y(), BoardSizes::BoardHeight - BoardSizes::FieldHeight)))
+    if(lastPos.x() < BoardSizes::BoardWidth - 2*BoardSizes::FieldWidth &&
+       lastPos.y() < BoardSizes::BoardHeight - BoardSizes::FieldHeight)
     {
         auto list = scene->items(
                             {lastPos.x() + 2.5*BoardSizes::FieldWidth,
@@ -902,10 +893,8 @@ void Knight::highlight() {
     }
 
     // bottom & left
-    if((lastPos.x() >= BoardSizes::FieldWidth ||
-        greaterEqual(lastPos.x(), lastPos.x() - BoardSizes::FieldWidth)) &&
-       (lastPos.y() < BoardSizes::BoardHeight - 2*BoardSizes::FieldHeight ||
-        lessThan(lastPos.y(), BoardSizes::BoardHeight - 2*BoardSizes::FieldHeight)))
+    if(lastPos.x() >= BoardSizes::FieldWidth &&
+       lastPos.y() < BoardSizes::BoardHeight - 2*BoardSizes::FieldHeight)
     {
         auto list = scene->items(
                             {lastPos.x() - 0.5*BoardSizes::FieldWidth,
@@ -921,10 +910,8 @@ void Knight::highlight() {
     }
 
     // bottom & right
-    if((lastPos.x() < BoardSizes::BoardWidth - BoardSizes::FieldWidth ||
-        lessThan(lastPos.x(), BoardSizes::BoardWidth - BoardSizes::FieldWidth)) &&
-       (lastPos.y() < BoardSizes::BoardHeight - 2*BoardSizes::FieldHeight ||
-        lessThan(lastPos.y(), BoardSizes::BoardHeight - 2*BoardSizes::FieldHeight)))
+    if(lastPos.x() < BoardSizes::BoardWidth - BoardSizes::FieldWidth &&
+       lastPos.y() < BoardSizes::BoardHeight - 2*BoardSizes::FieldHeight)
     {
         auto list = scene->items(
                             {lastPos.x() + 1.5*BoardSizes::FieldWidth,
@@ -938,12 +925,13 @@ void Knight::highlight() {
             field->setBrush(BoardBrush::Highlight);
         }
     }
-
 }
 
 bool Knight::goodMove() {
-    if(pos().x() < 0 || pos().x() > BoardSizes::BoardWidth ||
-       pos().y() < 0 || pos().y() > BoardSizes::BoardHeight)
+    if(pos().x() + 0.5*BoardSizes::FieldWidth < 0 ||
+      (pos().x() + 0.5*BoardSizes::FieldWidth > BoardSizes::BoardWidth) ||
+       pos().y() + 0.5*BoardSizes::FieldHeight < 0 ||
+      (pos().y() + 0.5*BoardSizes::FieldHeight > BoardSizes::BoardHeight))
         return false;
 
     if(player == Player::White && GameStatus::whiteKing->inDanger()) {
@@ -1085,7 +1073,6 @@ void Bishop::highlight() {
             point.ry() -= BoardSizes::FieldHeight;
         }
     }
-
     // right-top
     {
         QPointF point{lastPos.x() + 1.5*BoardSizes::FieldWidth,
@@ -1111,7 +1098,6 @@ void Bishop::highlight() {
             point.ry() -= BoardSizes::FieldHeight;
         }
     }
-
     // left-bottom
     {
         QPointF point{lastPos.x() - 0.5*BoardSizes::FieldWidth,
@@ -1137,7 +1123,6 @@ void Bishop::highlight() {
             point.ry() += BoardSizes::FieldHeight;
         }
     }
-
     // right-bottom
     {
         QPointF point{lastPos.x() + 1.5*BoardSizes::FieldWidth,
@@ -1166,8 +1151,10 @@ void Bishop::highlight() {
 }
 
 bool Bishop::goodMove() {
-    if(pos().x() < 0 || pos().x() > BoardSizes::BoardWidth ||
-       pos().y() < 0 || pos().y() > BoardSizes::BoardHeight)
+    if(pos().x() + 0.5*BoardSizes::FieldWidth < 0 ||
+      (pos().x() + 0.5*BoardSizes::FieldWidth > BoardSizes::BoardWidth) ||
+       pos().y() + 0.5*BoardSizes::FieldHeight < 0 ||
+      (pos().y() + 0.5*BoardSizes::FieldHeight > BoardSizes::BoardHeight))
         return false;
 
     if(player == Player::White && GameStatus::whiteKing->inDanger()) {
@@ -1386,8 +1373,10 @@ void Rook::highlight() {
 }
 
 bool Rook::goodMove() {
-    if(pos().x() < 0 || pos().x() > BoardSizes::BoardWidth ||
-       pos().y() < 0 || pos().y() > BoardSizes::BoardHeight)
+    if(pos().x() + 0.5*BoardSizes::FieldWidth < 0 ||
+      (pos().x() + 0.5*BoardSizes::FieldWidth > BoardSizes::BoardWidth) ||
+       pos().y() + 0.5*BoardSizes::FieldHeight < 0 ||
+      (pos().y() + 0.5*BoardSizes::FieldHeight > BoardSizes::BoardHeight))
         return false;
 
     if(player == Player::White && GameStatus::whiteKing->inDanger()) {
@@ -1473,46 +1462,384 @@ Queen::Queen(const QPointF& point, const QPixmap& pmap, Player p, QGraphicsScene
 {
 }
 
-void Queen::mousePressEvent(QGraphicsSceneMouseEvent* event) {
-    if(event->button() & Qt::LeftButton){
-        qDebug() << "LMB pressed at " << pos();
-
-        if(GameStatus::currentPlayer != player) {
-            event->ignore();
-            return;
-        }
-
-    }
-    QGraphicsPixmapItem::mousePressEvent(event);
-}
-
-void Queen::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
-    if(event->button() & Qt::LeftButton) {
-        qDebug() << "LMB released at " << pos();
-        if(pos().x() + (BoardSizes::FieldWidth/2)  > BoardSizes::BoardWidth  ||
-           pos().y() + (BoardSizes::FieldHeight/2) > BoardSizes::BoardHeight ||
-           pos().x() + (BoardSizes::FieldWidth/2)  < 0 ||
-           pos().y() + (BoardSizes::FieldHeight/2) < 0)
-        {
-            setPos(lastPos);
-        }
-        else {
-            setPos(scene->items({pos().x() + (BoardSizes::FieldWidth/2),
-                                 pos().y() + (BoardSizes::FieldHeight/2)
-                                }).last()->pos());
-            lastPos = pos();
-        }
-    }
-    QGraphicsPixmapItem::mouseReleaseEvent(event);
-}
-
 void Queen::highlight() {
+    // top
+    {
+        QPointF point{lastPos.x() + 0.5*BoardSizes::FieldHeight,
+                      lastPos.y() - 0.5*BoardSizes::FieldHeight};
+        while(!(point.y() < 0)) {
+            auto list = scene->items(point);
+            auto state = checkField(list, this);
+            if(state == FieldState::Empty ||
+               state == FieldState::Enemy) {
+                QGraphicsRectItem* field = static_cast<QGraphicsRectItem*>(list.last());
 
+                GameStatus::highlighted.push_back({field, field->brush()});
+                field->setBrush(BoardBrush::Highlight);
+            }
+            if(state == FieldState::Friend ||
+               state == FieldState::Enemy)
+                break;
+            point.ry() -= BoardSizes::FieldHeight;
+        }
+    }
+    // right
+    {
+        QPointF point{lastPos.x() + 1.5*BoardSizes::FieldHeight,
+                      lastPos.y() + 0.5*BoardSizes::FieldHeight};
+        while(!(point.x() > BoardSizes::BoardWidth)) {
+            auto list = scene->items(point);
+            auto state = checkField(list, this);
+            if(state == FieldState::Empty ||
+               state == FieldState::Enemy) {
+                QGraphicsRectItem* field = static_cast<QGraphicsRectItem*>(list.last());
+
+                GameStatus::highlighted.push_back({field, field->brush()});
+                field->setBrush(BoardBrush::Highlight);
+            }
+            if(state == FieldState::Friend ||
+               state == FieldState::Enemy)
+                break;
+            point.rx() += BoardSizes::FieldWidth;
+        }
+    }
+    // bottom
+    {
+        QPointF point{lastPos.x() + 0.5*BoardSizes::FieldHeight,
+                      lastPos.y() + 1.5*BoardSizes::FieldHeight};
+        while(!(point.y() > BoardSizes::BoardHeight)) {
+            auto list = scene->items(point);
+            auto state = checkField(list, this);
+            if(state == FieldState::Empty ||
+               state == FieldState::Enemy) {
+                QGraphicsRectItem* field = static_cast<QGraphicsRectItem*>(list.last());
+
+                GameStatus::highlighted.push_back({field, field->brush()});
+                field->setBrush(BoardBrush::Highlight);
+            }
+            if(state == FieldState::Friend ||
+               state == FieldState::Enemy)
+                break;
+            point.ry() += BoardSizes::FieldHeight;
+        }
+    }
+    // left
+    {
+        QPointF point{lastPos.x() - 0.5*BoardSizes::FieldHeight,
+                      lastPos.y() + 0.5*BoardSizes::FieldHeight};
+        while(!(point.x() < 0)) {
+            auto list = scene->items(point);
+            auto state = checkField(list, this);
+            if(state == FieldState::Empty ||
+               state == FieldState::Enemy) {
+                QGraphicsRectItem* field = static_cast<QGraphicsRectItem*>(list.last());
+
+                GameStatus::highlighted.push_back({field, field->brush()});
+                field->setBrush(BoardBrush::Highlight);
+            }
+            if(state == FieldState::Friend ||
+               state == FieldState::Enemy)
+                break;
+            point.rx() -= BoardSizes::FieldWidth;
+        }
+    }
+
+    // left-top
+    {
+        QPointF point{lastPos.x() - 0.5*BoardSizes::FieldWidth,
+                      lastPos.y() - 0.5*BoardSizes::FieldHeight};
+        while(!(point.x() < 0) &&
+              !(point.y() < 0))
+        {
+            auto list = scene->items(point);
+            auto state =  checkField(list, this);
+            if(state == FieldState::Empty ||
+               state == FieldState::Enemy)
+            {
+                QGraphicsRectItem* field = static_cast<QGraphicsRectItem*>(list.last());
+
+                GameStatus::highlighted.push_back({field, field->brush()});
+                field->setBrush(BoardBrush::Highlight);
+            }
+            if(state == FieldState::Friend ||
+               state == FieldState::Enemy)
+                break;
+            point.rx() -= BoardSizes::FieldWidth;
+            point.ry() -= BoardSizes::FieldHeight;
+        }
+    }
+    // right-top
+    {
+        QPointF point{lastPos.x() + 1.5*BoardSizes::FieldWidth,
+                      lastPos.y() - 0.5*BoardSizes::FieldHeight};
+
+        while(!(point.y() < 0) &&
+                point.x() < BoardSizes::BoardWidth)
+        {
+            auto list = scene->items(point);
+            auto state =  checkField(list, this);
+            if(state == FieldState::Empty ||
+               state == FieldState::Enemy)
+            {
+                QGraphicsRectItem* field = static_cast<QGraphicsRectItem*>(list.last());
+
+                GameStatus::highlighted.push_back({field, field->brush()});
+                field->setBrush(BoardBrush::Highlight);
+            }
+            if(state == FieldState::Friend ||
+               state == FieldState::Enemy)
+                break;
+            point.rx() += BoardSizes::FieldWidth;
+            point.ry() -= BoardSizes::FieldHeight;
+        }
+    }
+    // left-bottom
+    {
+        QPointF point{lastPos.x() - 0.5*BoardSizes::FieldWidth,
+                lastPos.y() + 1.5*BoardSizes::FieldHeight};
+
+        while(!(point.x() < 0) &&
+                point.y() < BoardSizes::BoardHeight)
+        {
+            auto list = scene->items(point);
+            auto state =  checkField(list, this);
+            if(state == FieldState::Empty ||
+               state == FieldState::Enemy)
+            {
+                QGraphicsRectItem* field = static_cast<QGraphicsRectItem*>(list.last());
+
+                GameStatus::highlighted.push_back({field, field->brush()});
+                field->setBrush(BoardBrush::Highlight);
+            }
+            if(state == FieldState::Friend ||
+               state == FieldState::Enemy)
+                break;
+            point.rx() -= BoardSizes::FieldWidth;
+            point.ry() += BoardSizes::FieldHeight;
+        }
+    }
+    // right-bottom
+    {
+        QPointF point{lastPos.x() + 1.5*BoardSizes::FieldWidth,
+                      lastPos.y() + 1.5*BoardSizes::FieldHeight};
+
+        while(point.x() < BoardSizes::BoardWidth &&
+              point.y() < BoardSizes::BoardHeight)
+        {
+            auto list = scene->items(point);
+            auto state =  checkField(list, this);
+            if(state == FieldState::Empty ||
+               state == FieldState::Enemy)
+            {
+                QGraphicsRectItem* field = static_cast<QGraphicsRectItem*>(list.last());
+
+                GameStatus::highlighted.push_back({field, field->brush()});
+                field->setBrush(BoardBrush::Highlight);
+            }
+            if(state == FieldState::Friend ||
+               state == FieldState::Enemy)
+                break;
+            point.rx() += BoardSizes::FieldWidth;
+            point.ry() += BoardSizes::FieldHeight;
+        }
+    }
 }
 
-bool Queen::goodMove()
-{
-    return 0;
+bool Queen::goodMove() {
+    if(pos().x() + 0.5*BoardSizes::FieldWidth < 0 ||
+      (pos().x() + 0.5*BoardSizes::FieldWidth > BoardSizes::BoardWidth) ||
+       pos().y() + 0.5*BoardSizes::FieldHeight < 0 ||
+      (pos().y() + 0.5*BoardSizes::FieldHeight > BoardSizes::BoardHeight))
+        return false;
+
+    if(player == Player::White && GameStatus::whiteKing->inDanger()) {
+        return false;
+    }
+    else if(GameStatus::blackKing->inDanger()){
+        return false;
+    }
+
+    const QPointF& newPos = scene->items({pos().x() + 0.5*BoardSizes::FieldWidth,
+                                          pos().y() + 0.5*BoardSizes::FieldHeight
+                                        }).last()->pos();
+    if(newPos.y() == lastPos.y()) {
+        // left
+        if(newPos.x() < lastPos.x()) {
+            QPointF point = {lastPos.x() - 0.5*BoardSizes::FieldWidth,
+                             lastPos.y() + 0.5*BoardSizes::FieldHeight};
+            // check path to last field
+            while(point.x() > newPos.x() + BoardSizes::FieldWidth) {
+                auto state = checkField(scene->items(point), this);
+                if(state == FieldState::Friend ||
+                   state == FieldState::Enemy)
+                    return false;
+                point.rx() -= BoardSizes::FieldWidth;
+            }
+            // check last field
+            return checkField(scene->items(point), this).resolve(scene);
+        }
+        // right
+        else if(newPos.x() > lastPos.x()) {
+            QPointF point = {lastPos.x() + 1.5*BoardSizes::FieldWidth,
+                             lastPos.y() + 0.5*BoardSizes::FieldHeight};
+            // check path to last field
+            while(point.x() < newPos.x()) {
+                auto state = checkField(scene->items(point), this);
+                if(state == FieldState::Friend ||
+                   state == FieldState::Enemy)
+                    return false;
+                point.rx() += BoardSizes::FieldWidth;
+            }
+            // check last field
+            return checkField(scene->items(point), this).resolve(scene);
+        }
+    }
+    else if(newPos.x() == lastPos.x()) {
+        // top
+        if(newPos.y() < lastPos.y()) {
+            QPointF point = {lastPos.x() + 0.5*BoardSizes::FieldWidth,
+                             lastPos.y() - 0.5*BoardSizes::FieldHeight};
+            // check path to last field
+            while(point.y() > newPos.y() + BoardSizes::FieldHeight) {
+                auto state = checkField(scene->items(point), this);
+                if(state == FieldState::Friend ||
+                   state == FieldState::Enemy)
+                    return false;
+                point.ry() -= BoardSizes::FieldHeight;
+            }
+            // check last field
+            return checkField(scene->items(point), this).resolve(scene);
+        }
+        // bottom
+        else if(newPos.y() > lastPos.y()) {
+            QPointF point = {lastPos.x() + 0.5*BoardSizes::FieldWidth,
+                             lastPos.y() + 1.5*BoardSizes::FieldHeight};
+            // check path to last field
+            while(point.y() < newPos.y()) {
+                auto state = checkField(scene->items(point), this);
+                if(state == FieldState::Friend ||
+                   state == FieldState::Enemy)
+                    return false;
+                point.ry() += BoardSizes::FieldHeight;
+            }
+            // check last field
+            return checkField(scene->items(point), this).resolve(scene);
+        }
+    }
+    // left-top
+    else if(newPos.x() < lastPos.x() &&
+       newPos.y() < lastPos.y())
+    {
+        qreal x1 = lastPos.x();
+        qreal y1 = lastPos.y();
+        qreal x2 = lastPos.x() + BoardSizes::FieldWidth;
+        qreal y2 = lastPos.y() + BoardSizes::FieldHeight;
+
+        bool onDiagonal = (newPos.y()-y1)*(x2-x1)-(y2-y1)*(newPos.x()-x1) == 0;
+
+        if(onDiagonal) {
+            QPointF point = {lastPos.x() - 0.5*BoardSizes::FieldWidth,
+                             lastPos.y() - 0.5*BoardSizes::FieldHeight};
+            // check path to last field
+            while(point.x() > newPos.x() + BoardSizes::FieldWidth &&
+                  point.y() > newPos.y() + BoardSizes::FieldHeight)
+            {
+                auto state = checkField(scene->items(point), this);
+                if(state == FieldState::Friend ||
+                   state == FieldState::Enemy)
+                    return false;
+                point.rx() -= BoardSizes::FieldWidth;
+                point.ry() -= BoardSizes::FieldHeight;
+            }
+            // check last field
+            return checkField(scene->items(point), this).resolve(scene);
+        }
+    }
+    // left-bottom
+    else if(newPos.x() < lastPos.x() &&
+            newPos.y() > lastPos.y())
+    {
+        qreal x1 = lastPos.x();
+        qreal y1 = lastPos.y();
+        qreal x2 = lastPos.x() + BoardSizes::FieldWidth;
+        qreal y2 = lastPos.y() - BoardSizes::FieldHeight;
+
+        bool onDiagonal = (newPos.y()-y1)*(x2-x1)-(y2-y1)*(newPos.x()-x1) == 0;
+
+        if(onDiagonal) {
+            QPointF point = {lastPos.x() - 0.5*BoardSizes::FieldWidth,
+                             lastPos.y() + 1.5*BoardSizes::FieldHeight};
+            while(point.x() > newPos.x() + BoardSizes::FieldWidth &&
+                  point.y() < newPos.y())
+            {
+                auto state = checkField(scene->items(point), this);
+                if(state == FieldState::Friend ||
+                   state == FieldState::Enemy)
+                    return false;
+                point.rx() -= BoardSizes::FieldWidth;
+                point.ry() += BoardSizes::FieldHeight;
+            }
+            // check last field
+            return checkField(scene->items(point), this).resolve(scene);
+        }
+    }
+    // right-top
+    else if(newPos.x() > lastPos.x() &&
+            newPos.y() < lastPos.y())
+    {
+        qreal x1 = lastPos.x();
+        qreal y1 = lastPos.y();
+        qreal x2 = lastPos.x() + BoardSizes::FieldWidth;
+        qreal y2 = lastPos.y() - BoardSizes::FieldHeight;
+
+        bool onDiagonal = (newPos.y()-y1)*(x2-x1)-(y2-y1)*(newPos.x()-x1) == 0;
+
+        if(onDiagonal) {
+            QPointF point = {lastPos.x() + 1.5*BoardSizes::FieldWidth,
+                             lastPos.y() - 0.5*BoardSizes::FieldHeight};
+            while(point.x() < newPos.x() &&
+                  point.y() > newPos.y() + BoardSizes::FieldWidth)
+            {
+                auto state = checkField(scene->items(point), this);
+                if(state == FieldState::Friend ||
+                   state == FieldState::Enemy)
+                    return false;
+                point.rx() += BoardSizes::FieldWidth;
+                point.ry() -= BoardSizes::FieldHeight;
+            }
+            // check last field
+            return checkField(scene->items(point), this).resolve(scene);
+        }
+    }
+    // right-bottom
+    else if(newPos.x() > lastPos.x() &&
+            newPos.y() > lastPos.y())
+    {
+        qreal x1 = lastPos.x();
+        qreal y1 = lastPos.y();
+        qreal x2 = lastPos.x() + BoardSizes::FieldWidth;
+        qreal y2 = lastPos.y() + BoardSizes::FieldHeight;
+
+        bool onDiagonal = (newPos.y()-y1)*(x2-x1)-(y2-y1)*(newPos.x()-x1) == 0;
+
+        if(onDiagonal) {
+            QPointF point = {lastPos.x() + 1.5*BoardSizes::FieldWidth,
+                             lastPos.y() + 1.5*BoardSizes::FieldHeight};
+            while(point.x() < newPos.x() &&
+                  point.y() < newPos.y())
+            {
+                auto state = checkField(scene->items(point), this);
+                if(state == FieldState::Friend ||
+                   state == FieldState::Enemy)
+                    return false;
+                point.rx() += BoardSizes::FieldWidth;
+                point.ry() += BoardSizes::FieldHeight;
+            }
+            // check last field
+            return checkField(scene->items(point), this).resolve(scene);
+        }
+    }
+    return false;
 }
 
 King::King(const QPointF& point, const QPixmap& pmap, Player p, QGraphicsScene* s)
@@ -1540,10 +1867,7 @@ void King::mousePressEvent(QGraphicsSceneMouseEvent* event) {
 void King::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
     if(event->button() & Qt::LeftButton) {
         qDebug() << "LMB released at " << pos();
-        if(pos().x() + (BoardSizes::FieldWidth/2)  > BoardSizes::BoardWidth  ||
-           pos().y() + (BoardSizes::FieldHeight/2) > BoardSizes::BoardHeight ||
-           pos().x() + (BoardSizes::FieldWidth/2)  < 0 ||
-           pos().y() + (BoardSizes::FieldHeight/2) < 0)
+        if(!goodMove())
         {
             setPos(lastPos);
         }
@@ -1558,10 +1882,40 @@ void King::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
 }
 
 void King::highlight() {
+    std::array<QPointF, 8> points
+    {{
+        // left-top
+        {lastPos.x() - 0.5*BoardSizes::FieldWidth,
+         lastPos.y() - 0.5*BoardSizes::FieldHeight},
+        // top
+        {lastPos.x() + 0.5*BoardSizes::FieldWidth,
+         lastPos.y() - 0.5*BoardSizes::FieldHeight},
+        // right-top
+        {lastPos.x() + 1.5*BoardSizes::FieldWidth,
+         lastPos.y() - 0.5*BoardSizes::FieldHeight},
+        // right
+        {lastPos.x() + 1.5*BoardSizes::FieldWidth,
+         lastPos.y() + 0.5*BoardSizes::FieldHeight},
+        // right-bottom
+        {lastPos.x() + 1.5*BoardSizes::FieldWidth,
+         lastPos.y() + 1.5*BoardSizes::FieldHeight},
+        // bottom
+        {lastPos.x() + 0.5*BoardSizes::FieldWidth,
+         lastPos.y() + 1.5*BoardSizes::FieldHeight},
+        // left-bottom
+        {lastPos.x() - 0.5*BoardSizes::FieldWidth,
+         lastPos.y() + 1.5*BoardSizes::FieldHeight},
+        // left
+        {lastPos.x() - 0.5*BoardSizes::FieldWidth,
+         lastPos.y() + 0.5*BoardSizes::FieldHeight}
+    }};
 
+    for(const auto& point : points) {
+
+    }
 }
 
 bool King::goodMove()
 {
-    return 0;
+    return 1;
 }
