@@ -8,6 +8,8 @@ QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
+CONFIG += c++14
+
 TARGET = QtChess
 TEMPLATE = app
 
@@ -22,18 +24,28 @@ DEFINES += QT_DEPRECATED_WARNINGS
 # You can also select to disable deprecated APIs only up to a certain version of Qt.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
+QMAKE_CXXFLAGS_WARN_ON += -Wno-unused-parameter
+QMAKE_CXXFLAGS += -Wall
+QMAKE_CXXFLAGS += -Wextra
 
 SOURCES += \
         main.cpp \
         mainwindow.cpp \
-    chesspiece.cpp
+    chesspiece.cpp \
+    movements.cpp \
+    promotiondialog.cpp \
+    paths.cpp
 
 HEADERS += \
         mainwindow.h \
-    chesspiece.h
+    chesspiece.h \
+    movements.h \
+    promotiondialog.h \
+    paths.h
 
 FORMS += \
-        mainwindow.ui
+        mainwindow.ui \
+    promotiondialog.ui
 
 RESOURCES += \
     resources.qrc

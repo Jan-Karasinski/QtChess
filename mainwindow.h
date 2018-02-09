@@ -9,10 +9,14 @@
 #include <string>
 #include <QPointF>
 #include <QGraphicsItem>
+#include <memory>
+#include <queue>
+#include <utility>
 
 typedef const qreal xpos;
 typedef const qreal ypos;
 
+class ChessPiece;
 class King;
 
 enum class PieceType : char {
@@ -25,33 +29,36 @@ enum Player : char {
 };
 
 namespace BoardSizes {
-    constexpr int multiply(int i, int j) {
-        return i * j;
-    }
+    constexpr const int MaxColCount = 8;
+    constexpr const int MaxRowCount = 8;
 
-    int posToIndex(qreal pos, qreal size) noexcept;
+    constexpr const int FieldHeight = 48;
+    constexpr const int FieldWidth  = 48;
 
-    const int MaxColSize  = 8;
-    const int MaxRowSize  = 8;
-
-    const int FieldHeight = 48;
-    const int FieldWidth  = 48;
-
-    const int BoardHeight = multiply(MaxColSize, FieldHeight);
-    const int BoardWidth  = multiply(MaxRowSize, FieldWidth);
+    constexpr const int BoardHeight = MaxColCount * FieldHeight;
+    constexpr const int BoardWidth  = MaxRowCount * FieldWidth;
 }
 
 namespace BoardBrush {
     const QBrush White = QBrush(QColor(Qt::GlobalColor::white));
     const QBrush Black = QBrush(QColor(Qt::GlobalColor::black));
-    const QBrush Highlight = QBrush(QColor(Qt::GlobalColor::red));
 }
 
 namespace GameStatus {
     extern Player currentPlayer;
-    extern King* whiteKing;
-    extern King* blackKing;
-    extern QQueue<QPair<QGraphicsRectItem*, QBrush>> highlighted;
+    extern std::queue<std::pair<QGraphicsRectItem*, QBrush>> highlighted;
+
+    // pieces detatched from scene
+    extern std::vector<std::unique_ptr<ChessPiece>> promotedPieces;
+
+    namespace White {
+        extern King* king;
+        extern std::vector<ChessPiece*> pieces;
+    }
+    namespace Black {
+        extern King* king;
+        extern std::vector<ChessPiece*> pieces;
+    }
 }
 
 namespace Ui {
@@ -69,9 +76,15 @@ public:
 private:
     void DrawBoard();
 
-    void PlacePieces(std::vector<std::tuple<PieceType, const QPointF&, const QPixmap&, Player>>);
+    void PlacePieces(std::vector<std::tuple<const QPixmap&, PieceType, const QPointF&, Player>>);
 
-    QPointF index_to_point(xpos, ypos) const noexcept;
+    void PlacePieces();
+
+    QPointF index_to_point(const qreal&, const qreal&) const noexcept;
+
+    void cleanUp() noexcept;
+
+    void newGame() noexcept;
 
     Ui::MainWindow *ui;
 };
