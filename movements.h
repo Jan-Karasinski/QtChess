@@ -1,26 +1,24 @@
 #ifndef MOVEMENTS_H
 #define MOVEMENTS_H
-#include "chesspiece.h"
+
 #include <QGraphicsScene>
 #include <memory>
 
-enum class MoveType {
-    Move, Attack, Castle, EnPassant, PromotionMove, PromotionAttack
-};
+class ChessPiece;
+class Pawn;
+
+enum class MoveType : int;
 
 struct Movement
 {
-    // for readability and simplicity,
-    // m_coordinates refer to
-    // destination of piece
     const QPointF& m_coordinates;
 
-    MoveType type;
+    const MoveType m_type;
 
     virtual void exec() = 0;
     virtual const QBrush& getHightlightColor() const noexcept = 0;
 
-    Movement(const QPointF& t_point, MoveType t_type) noexcept;
+    Movement(const QPointF& t_point, const MoveType t_type) noexcept;
 
     virtual ~Movement() = default;
 
@@ -29,12 +27,19 @@ struct Movement
 
     friend bool operator !=(const std::unique_ptr<Movement>& t_move,
                             const QPointF& t_coordinates) noexcept;
+
+protected:
+    void movePiece(ChessPiece* t_piece, QPointF t_dest) const noexcept;
+
+    // overload for castling
+    void movePiece(ChessPiece* t_fPiece, QPointF t_fDest,
+                   ChessPiece* t_sPiece, QPointF t_sDest) const noexcept;
 };
 
 struct AttackingType
 {
 protected:
-    void removePiece(ChessPiece*& t_enemy);
+    void removePiece(ChessPiece* t_enemy);
 };
 
 struct Move : public Movement
@@ -143,26 +148,5 @@ struct PromotionAttack : public Movement, public AttackingType
 
     PromotionAttack(Pawn* t_self, ChessPiece* t_enemy) noexcept;
 };
-
-/*
-struct Movement
-{
-public:
-    QPointF m_coordinates;
-
-
-
-    std::unique_ptr<MoveType> m_move;
-
-public:
-    void exec();
-
-    const QBrush& getHightlightColor() const noexcept;
-
-    bool operator ==(const QPointF& t_coordinates) const noexcept;
-
-    Movement(const QPointF& t_pos, MoveType* t_type);
-};
-*/
 
 #endif // MOVEMENTS_H

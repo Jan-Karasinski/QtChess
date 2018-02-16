@@ -1,9 +1,6 @@
 #include "paths.h"
 
-namespace Paths
-{
-    using namespace std::string_literals;
-
+namespace Paths {
     namespace White {
         QString pawn  { ":/Pieces/pawn_white.png"   };
         QString knight{ ":/Pieces/knight_white.png" };

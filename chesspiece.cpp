@@ -1,98 +1,137 @@
 #include "chesspiece.h"
+#include "chess_namespaces.h"
 #include "movements.h"
-#include "promotiondialog.h"
 #include "paths.h"
+#include "promotiondialog.h"
+#include "enddialog.h"
 
 #include <QGraphicsSceneMouseEvent>
 #include <QDebug>
 #include <QGraphicsScene>
 #include <algorithm>
+#include <utility>
 
-template<typename C, typename V>
-bool contains(C&& t_container, V&& t_value) {
-    return std::end(t_container) != std::find(std::begin(t_container),
-                                              std::end(t_container),
-                                              t_value);
-}
+namespace {
+    template <typename T>
+    typename std::enable_if<std::is_floating_point<T>::value, bool>::type
+    areEqual(T&& first, T&& second) {
+        return static_cast<int>(first) == static_cast<int>(second);
+    }
 
-QPointF getFixedPos(const QPointF& pos) noexcept {
+    template<typename C, typename V>
+    bool contains(C&& t_container, V&& t_value) {
+        return std::end(t_container) != std::find(std::begin(t_container),
+                                                  std::end(t_container),
+                                                  t_value);
+    }
+
+    enum class FieldState : int {
+        Empty = 0, Friend = 1, Enemy = 2, InvalidField = 3
+    };
+
+    enum class FieldColor : char {
+        White = 'W', Black = 'B'
+    };
+
+
     // offset to middle of piece
-    constexpr const qreal offsetX = .5*BoardSizes::FieldWidth;
-    constexpr const qreal offsetY = .5*BoardSizes::FieldHeight;
-    return {pos.x() + offsetX - std::fmod(pos.x() + offsetX, BoardSizes::FieldWidth),
-            pos.y() + offsetY - std::fmod(pos.y() + offsetY, BoardSizes::FieldHeight)};
-}
+    const qreal offsetX{ .5*BoardSizes::FieldWidth };
+    const qreal offsetY{ .5*BoardSizes::FieldHeight };
 
-enum class FieldState : int
-{
-    Empty = 0, Friend = 1, Enemy = 2, InvalidField = 3
-};
-
-struct fieldInfo
-{
-    FieldState state = FieldState::Empty;
-
-    ChessPiece* piece = nullptr;
-
-    bool operator ==(FieldState i) const noexcept {
-        return state == i;
-    }
-
-    bool operator !=(FieldState i) const noexcept {
-        return state != i;
-    }
-
-    fieldInfo(FieldState s = FieldState::Empty)
-        : state(s)
+    struct fieldInfo
     {
-    }
+        FieldState state = FieldState::Empty;
 
-    fieldInfo(FieldState s, ChessPiece* p)
-        : state(s), piece(p)
+        ChessPiece* piece = nullptr;
+
+        bool operator ==(FieldState i) const noexcept {
+            return state == i;
+        }
+
+        bool operator !=(FieldState i) const noexcept {
+            return state != i;
+        }
+
+        fieldInfo() = default;
+
+        fieldInfo(FieldState s)
+            : state(s)
+        {
+        }
+
+        fieldInfo(FieldState s, ChessPiece* p)
+            : state(s), piece(p)
+        {
+        }
+
+    };
+
+    fieldInfo checkField(const QPointF& pos,
+                         const ChessPiece* plPiece,
+                         QGraphicsScene* scene)
     {
+        if(pos.x() < 0 || pos.x() >= BoardSizes::BoardWidth ||
+           pos.y() < 0 || pos.y() >= BoardSizes::BoardHeight
+        ) {
+            return { FieldState::InvalidField };
+        }
+
+        // list of elements in middle of field
+        auto list = scene->items({pos.x() + offsetX,
+                                  pos.y() + offsetY});
+
+        // make sure at most one piece exist on field
+        Q_ASSERT_X(list.size() <= 2, "TESTcheckField",
+                                     "more than 1 piece at field");
+
+        if(list.size() == 1) { // contains only field
+            return { FieldState::Empty };
+        }
+
+        auto* piece = dynamic_cast<ChessPiece*>(list.constFirst());
+        if(piece) {
+            if(piece->m_player == plPiece->m_player) {
+                return { FieldState::Friend, piece };
+            }
+            else {
+                return { FieldState::Enemy, piece };
+            }
+        }
+
+        return { FieldState::InvalidField };
     }
 
-};
-
-fieldInfo checkField(const QPointF& pos,
-                     const ChessPiece* plPiece,
-                     QGraphicsScene* scene)
-{
-    if(pos.x() < 0 || pos.x() >= BoardSizes::BoardWidth ||
-       pos.y() < 0 || pos.y() >= BoardSizes::BoardHeight)
-    {
-        return {FieldState::InvalidField};
-    }
-
-    // list of elements in middle of field
-    auto list = scene->items({pos.x() + .5*BoardSizes::FieldWidth,
-                              pos.y() + .5*BoardSizes::FieldHeight});
-
-    // make sure at most one piece exist on field
-    Q_ASSERT_X(list.size() <= 2, "TESTcheckField",
-                                 "more than 1 piece at field");
-
-    if(list.size() == 1) { // contains only field
-        return {FieldState::Empty};
-    }
-
-    auto* piece = dynamic_cast<ChessPiece*>(list.constFirst());
-    if(piece) {
-        if(piece->m_player == plPiece->m_player) {
-            return {FieldState::Friend, piece};
+    inline FieldColor getFieldColor(QPoint t_pos) {
+        if(t_pos.x() % 2 == 0) {
+            if(t_pos.y() % 2 == 0) {
+                return FieldColor::White;
+            }
+            else {
+                return FieldColor::Black;
+            }
         }
         else {
-            return {FieldState::Enemy, piece};
+            if(t_pos.y() % 2 == 0) {
+                return FieldColor::Black;
+            }
+            else {
+                return FieldColor::White;
+            }
         }
     }
 
-    return {FieldState::InvalidField};
+    QPointF getCenteredPos(const QPointF& pos) noexcept {
+        return { pos.x() + offsetX - std::fmod(pos.x() + offsetX, BoardSizes::FieldWidth),
+                 pos.y() + offsetY - std::fmod(pos.y() + offsetY, BoardSizes::FieldHeight) };
+    }
 }
 
-
-ChessPiece::ChessPiece(const QPixmap& t_pixMap, PieceType t_type,
-                       const QPointF& t_point, Player t_player,
-                       QGraphicsScene* t_scene, bool t_firstMove) noexcept
+ChessPiece::ChessPiece(const QPixmap&  t_pixMap,
+                       PieceType       t_type,
+                       const QPointF&  t_point,
+                       Player          t_player,
+                       QGraphicsScene* t_scene,
+                       bool            t_firstMove) noexcept
     : QGraphicsPixmapItem(t_pixMap),
       m_type(t_type),
       m_lastPos(t_point),
@@ -105,9 +144,12 @@ ChessPiece::ChessPiece(const QPixmap& t_pixMap, PieceType t_type,
     setZValue(ChessPiece::defaultZValue);
 }
 
-ChessPiece* ChessPiece::Create(const QPixmap& t_pixMap, PieceType t_type,
-                               const QPointF& t_point, Player t_player,
-                               QGraphicsScene* t_scene, bool t_firstMove) noexcept
+ChessPiece* ChessPiece::Create(const QPixmap&  t_pixMap,
+                               PieceType       t_type,
+                               const QPointF&  t_point,
+                               Player          t_player,
+                               QGraphicsScene* t_scene,
+                               bool            t_firstMove) noexcept
 {
     switch (t_type) {
         case PieceType::Pawn:
@@ -132,9 +174,11 @@ ChessPiece* ChessPiece::Create(const QPixmap& t_pixMap, PieceType t_type,
     return nullptr;
 }
 
-ChessPiece* ChessPiece::Create(PieceType t_type,
-                               const QPointF& t_point, Player t_player,
-                               QGraphicsScene* t_scene, bool t_firstMove) noexcept
+ChessPiece* ChessPiece::Create(PieceType       t_type,
+                               const QPointF&  t_point,
+                               Player          t_player,
+                               QGraphicsScene* t_scene,
+                               bool            t_firstMove) noexcept
 {
     auto t_pixMap = [&]() -> QPixmap {
             switch (t_type) {
@@ -239,23 +283,33 @@ void ChessPiece::mouseReleaseEvent(QGraphicsSceneMouseEvent* t_event) {
         dehighlight();
         setZValue(zValue() - 1);
 
-        const QPointF piecePos = getFixedPos(pos());
+        const QPointF piecePos = getCenteredPos(pos());
 
         auto move = std::find(std::begin(m_moves), std::end(m_moves), piecePos);
 
         if(move != std::end(m_moves)) {
             m_firstMove = false;
 
-            if((*move)->type == MoveType::PromotionAttack ||
-               (*move)->type == MoveType::PromotionMove)
-            { // prevents jumping to top-left corner after promotion
+            for(ChessPiece* piece : m_enemyPieces) {
+                if(piece->m_type == PieceType::Pawn) {
+                    static_cast<Pawn*>(piece)->m_enPassant = false;
+                }
+            }
+
+            // prevents next clicked piece from jumping
+            // to top-left corner after promotion
+            auto moveType = (*move)->m_type;
+            if(moveType == MoveType::PromotionAttack ||
+               moveType == MoveType::PromotionMove
+            ) {
                 QGraphicsPixmapItem::mouseReleaseEvent(t_event);
             }
 
             (*move)->exec(); // if promotion - pawn gets deleted
 
-            if(isGameOver()) {
-                ChessPiece::checkmate();
+            auto status = isGameOver();
+            if(status.first != WinCondition::Continue) {
+                ChessPiece::endGame(status);
             }
             else {
                 ChessPiece::nextTurn();
@@ -273,9 +327,6 @@ void ChessPiece::mouseReleaseEvent(QGraphicsSceneMouseEvent* t_event) {
 }
 
 void ChessPiece::highlight() {
-    constexpr const qreal offsetX = .5*BoardSizes::FieldWidth;
-    constexpr const qreal offsetY = .5*BoardSizes::FieldHeight;
-
     for(const auto& move : m_moves) {
         auto list = m_scene->items({move->m_coordinates.x() + offsetX,
                                     move->m_coordinates.y() + offsetY});
@@ -297,28 +348,177 @@ void ChessPiece::dehighlight() {
     }
 }
 
-bool ChessPiece::isGameOver() const noexcept {
-    // if count of available moves of enemies == 0
-    // (cannot protect their king or king cannot flee)
+std::pair<WinCondition, Player> ChessPiece::isGameOver() const noexcept {
+    if(GameStatus::uselessMoves >= 100) {
+        return { WinCondition::FiftyMoves, m_player };
+    }
 
-    return std::none_of(std::begin(m_enemyPieces),
-                        std::end(m_enemyPieces),
-                        [&](const ChessPiece* enemy) {
-                            return enemy->haveValidMoves();
-                        });
+    // functors for better readability
+    const auto& friendlyPieces = [&] {
+        if(m_player == Player::White) {
+            return GameStatus::White::pieces;
+        }
+        else {
+            return GameStatus::Black::pieces;
+        }
+    }();
+
+    const auto& enemyKing = [&] {
+        if(m_player == Player::White) {
+            return GameStatus::Black::king;
+        }
+        else return GameStatus::White::king;
+    }();
+
+    auto kingInCheck = [](const King* king) {
+        const std::vector<ChessPiece*>& vec =
+            king->m_player == Player::White ?
+                GameStatus::Black::pieces :
+                GameStatus::White::pieces;
+
+        return std::any_of(std::begin(vec),
+                           std::end(vec),
+                           [&](const ChessPiece* enemy) {
+                               return enemy->canAttackField(king->m_lastPos);
+                           });
+    };
+
+    auto canMove = [](const std::vector<ChessPiece*>& vec) {
+        return std::any_of(std::begin(vec),
+                           std::end(vec),
+                           [](const ChessPiece* friendly) {
+                               // king excluded, as he's not able to mate
+                               if(friendly->m_type == PieceType::King) {
+                                   return false;
+                               }
+                               return friendly->haveValidMoves();
+                           });
+    };
+    //
+
+    if(!canMove(friendlyPieces) &&
+       !m_king->haveValidMoves()
+    ) {
+        return { WinCondition::Stalemate, enemyKing->m_player };
+    }
+    else if(!canMove(m_enemyPieces) &&
+            !enemyKing->haveValidMoves()
+    ) {
+        if(kingInCheck(enemyKing)) { // it's not possible to protect the king
+            return { WinCondition::Checkmate, m_player };
+        }
+        else { // player not able to move, so game ends
+            return { WinCondition::Stalemate, m_player };
+        }
+    }
+
+    auto draw = [&]() {
+        // draw conditions:
+        // case       one side(friend)         other side(enemy)
+        //  1           king                       king
+        //
+        //  2       king + knight                  king
+        //
+        //  3       king + n * bishop              king
+        //         n > 0 if bishops
+        //      have the same field color
+        //
+        //  4       king + n * bishop          king + m * bishop
+        //         n > 0 if bishops           m > 0 if bishops
+        //      have the same field color   have the same field color
+        //
+        // cases 1, 2
+        if(m_enemyPieces.size() == 1) { // only king
+            // case 1
+            if(friendlyPieces.size() == 1) { // only king
+                return true;
+            }
+            // case 2
+            else if(friendlyPieces.size() == 2) {
+                if(friendlyPieces[0]->m_type == PieceType::Knight ||
+                   friendlyPieces[1]->m_type == PieceType::Knight
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        //
+        auto containsOnly = [](const std::vector<ChessPiece*>& vec,
+                                PieceType t_type)
+        {
+            return std::all_of(std::begin(vec),
+                               std::end(vec),
+                               [&](ChessPiece* piece) {
+                                   return piece->m_type == t_type ||
+                                          piece->m_type == PieceType::King;
+                               });
+        };
+
+        auto allHaveSameFieldColor = [](const std::vector<ChessPiece*>& vec) {
+            auto firstBishopIT{
+                std::find_if(std::begin(vec),
+                             std::end(vec),
+                             [&](const ChessPiece* piece) {
+                                 return piece->m_type == PieceType::Bishop;
+                             })
+            };
+
+            Q_ASSERT_X(firstBishopIT != std::end(vec),
+                       "isGameOver - draw - containsOnly",
+                       "Couldn't find a piece that should exist");
+
+            FieldColor color {
+                getFieldColor((*firstBishopIT)->m_lastPos.toPoint())
+            };
+
+            return
+            std::all_of(
+                std::begin(vec),
+                std::end(vec),
+                [&](const ChessPiece* piece) {
+                    return piece->m_type == PieceType::King ||
+                        getFieldColor(piece->m_lastPos.toPoint()) == color;
+                });
+        };
+        //
+
+        // cases 3, 4
+        if(containsOnly(friendlyPieces, PieceType::Bishop) &&
+           allHaveSameFieldColor(friendlyPieces)
+        ) {
+            // case 3
+            if(m_enemyPieces.size() == 1) { // only king
+                return true;
+            }
+            // case 4
+            if(containsOnly(m_enemyPieces, PieceType::Bishop) &&
+               allHaveSameFieldColor(m_enemyPieces)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+    if(draw()) {
+        return { WinCondition::Draw, m_player }; // player ignored
+    }
+
+    return { WinCondition::Continue, m_player }; // player ignored
 }
 
-void ChessPiece::checkmate() noexcept {
-    std::for_each(std::begin(GameStatus::White::pieces),
-                  std::end(GameStatus::White::pieces),
-                  [&](ChessPiece* piece) {
-                      piece->setEnabled(false);
-                  });
-    std::for_each(std::begin(GameStatus::Black::pieces),
-                  std::end(GameStatus::Black::pieces),
-                  [&](ChessPiece* piece) {
-                      piece->setEnabled(false);
-                  });
+void ChessPiece::endGame(std::pair<WinCondition, Player> t_state) noexcept {
+    for(auto* piece : GameStatus::White::pieces) {
+        piece->setEnabled(false);
+    }
+
+    for(auto* piece : GameStatus::Black::pieces) {
+        piece->setEnabled(false);
+    }
+
+    EndDialog dialog{ t_state };
+    dialog.exec();
 }
 
 void ChessPiece::nextTurn() noexcept {
@@ -332,16 +532,23 @@ void ChessPiece::nextTurn() noexcept {
 
 std::vector<std::unique_ptr<Movement>> ChessPiece::m_moves;
 
-inline void ChessPiece::addMove(Movement* t_movetype) {
-    ChessPiece::m_moves.emplace_back(t_movetype);
+inline void ChessPiece::addMove(Movement* t_move) {
+    ChessPiece::m_moves.emplace_back(t_move);
 }
 
 //
 
-Pawn::Pawn(const QPixmap& t_pixMap, const QPointF& t_point,
-           Player t_player, QGraphicsScene* t_scene, bool t_firstMove)
-    : ChessPiece(t_pixMap, PieceType::Pawn,
-                 t_point, t_player, t_scene, t_firstMove)
+Pawn::Pawn(const QPixmap&  t_pixMap,
+           const QPointF&  t_point,
+           Player          t_player,
+           QGraphicsScene* t_scene,
+           bool            t_firstMove)
+    : ChessPiece(t_pixMap,
+                 PieceType::Pawn,
+                 t_point,
+                 t_player,
+                 t_scene,
+                 t_firstMove)
 {
 }
 
@@ -438,108 +645,163 @@ bool Pawn::canAttackField(const QPointF& t_targetPos,
 }
 
 bool Pawn::haveValidMoves() const noexcept {
-    const qreal direction = m_player == Player::White ? -BoardSizes::FieldHeight : BoardSizes::FieldHeight;
-
-    const QPointF middle  {m_lastPos.x(),                          m_lastPos.y() + direction},
-            secondMiddle  {middle.x(),                             middle.y()    + direction},
-            left          {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() + direction},
-            leftEPAttack  {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y()},
-            leftEPDest    {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() + direction},
-            right         {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() + direction},
-            rightEPAttack {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y()},
-            rightEPDest   {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() + direction};
-
+    const auto direction = m_player == Player::White ? -BoardSizes::FieldHeight :
+                                                        BoardSizes::FieldHeight;
 
     // middle, move only
     {
-        if(checkField(middle, this, m_scene) == FieldState::Empty &&
+        const QPointF middle  {m_lastPos.x(), m_lastPos.y() + direction};
+        auto state = checkField(middle, this, m_scene);
+
+        if(state == FieldState::Empty &&
            std::none_of(std::begin(m_enemyPieces),
                         std::end(m_enemyPieces),
                         [&](const ChessPiece* enemy) {
-                            return enemy->canAttackField(m_king->m_lastPos, middle, m_lastPos);
+                            if(enemy->m_lastPos == middle)
+                                return true;
+                            return enemy->canAttackField(m_king->m_lastPos,
+                                                         middle,
+                                                         m_lastPos);
                         })
         ) {
             return true;
         }
     }
 
-    // left, attack only
+    // ordinary attack
     {
-        auto state = checkField(left, this, m_scene);
+        const std::array<QPointF, 2> ordinaryAttack{{
+            {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() + direction}, // left
+            {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() + direction}  // right
+        }};
 
-        if(state == FieldState::Enemy &&
-           std::none_of(std::begin(m_enemyPieces),
-                        std::end(m_enemyPieces),
-                        [&](const ChessPiece* enemy) {
-                            if(enemy->m_lastPos == left)
-                                return false;
-                            return enemy->canAttackField(m_king->m_lastPos, left, m_lastPos);
-                        })
-        ) {
-            return true;
+        for(const auto& point : ordinaryAttack) {
+            auto state = checkField(point, this, m_scene);
+
+            if(state == FieldState::Enemy &&
+               !m_king->inCheckAfterMove(point, m_lastPos)
+            ) {
+                return true;
+            }
         }
     }
 
-    // left en passant, attack only
+    // en passant
     {
-        auto attackedPosStatus    = checkField(leftEPAttack, this, m_scene); // pos of enemy
-        auto destinationPosStatus = checkField(leftEPDest,   this, m_scene);
+        const std::array<std::array<QPointF, 2>, 2> epMoves{{
+            {{
+                {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y()}, // left ep attack
+                {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() + direction} // left ep dest
+            }},
+            {{
+                {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y()}, // right ep attack
+                {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() + direction} // right ep dest
+            }}
+        }};
 
-        if(destinationPosStatus == FieldState::Empty &&
-           attackedPosStatus == FieldState::Enemy &&
-           attackedPosStatus.piece->m_type == PieceType::Pawn &&
-           static_cast<Pawn*>(attackedPosStatus.piece)->m_enPassant &&
-           std::none_of(std::begin(m_enemyPieces),
-                        std::end(m_enemyPieces),
-                        [&](const ChessPiece* enemy) {
-                            if(enemy->m_lastPos == leftEPAttack)
-                                return false;
-                            return enemy->canAttackField(m_king->m_lastPos, leftEPDest, {m_lastPos, leftEPAttack});
-                         })
-        ) {
-            return true;
-        }
-    }
+        for(const auto& points : epMoves) {
+            auto attackedPosStatus    = checkField(points[0], this, m_scene); // pos of enemy
+            auto destinationPosStatus = checkField(points[1], this, m_scene);
 
-    // right, attack only
-    {
-        auto state = checkField(right, this, m_scene);
-
-        if(state == FieldState::Enemy &&
-           std::none_of(std::begin(m_enemyPieces),
-                        std::end(m_enemyPieces),
-                        [&](const ChessPiece* enemy) {
-                            if(enemy->m_lastPos == right)
-                                return false;
-                            return enemy->canAttackField(m_king->m_lastPos, right, m_lastPos);
-                        }))
-        {
-            return true;
-        }
-    }
-
-    // right en passant, attack only
-    {
-        auto attackedPosStatus    = checkField(rightEPAttack, this, m_scene); // pos of enemy
-        auto destinationPosStatus = checkField(rightEPDest, this, m_scene);
-
-        if(destinationPosStatus == FieldState::Empty &&
-           attackedPosStatus == FieldState::Enemy &&
-           attackedPosStatus.piece->m_type == PieceType::Pawn &&
-           static_cast<Pawn*>(attackedPosStatus.piece)->m_enPassant &&
-           std::none_of(std::begin(m_enemyPieces),
-                        std::end(m_enemyPieces),
-                        [&](const ChessPiece* enemy) {
-                            if(enemy->m_lastPos == rightEPAttack)
-                                return false;
-                            return enemy->canAttackField(m_king->m_lastPos, rightEPDest, {m_lastPos, rightEPAttack});
-                        }))
-        {
-            return true;
+            if(destinationPosStatus == FieldState::Empty &&
+               attackedPosStatus == FieldState::Enemy &&
+               attackedPosStatus.piece->m_type == PieceType::Pawn &&
+               static_cast<Pawn*>(attackedPosStatus.piece)->m_enPassant &&
+               !m_king->inCheckAfterMove(points[1], {m_lastPos, points[0]})
+            ) {
+                return true;
+            }
         }
     }
 
     return false;
+}
+
+size_t Pawn::findValidMoves() noexcept {
+    const qreal direction = m_player == Player::White ? -BoardSizes::FieldHeight :
+                                                        BoardSizes::FieldHeight;
+
+    // middle, move only
+    {
+        const QPointF middle { m_lastPos.x(), m_lastPos.y() + direction },
+                secondMiddle { m_lastPos.x(), m_lastPos.y() + 2*direction };
+        if(checkField(middle, this, m_scene) == FieldState::Empty &&
+           !m_king->inCheckAfterMove(middle, m_lastPos)
+        ) {
+            // if last field, save as promotion
+            if(middle.y() <  BoardSizes::FieldHeight ||
+               middle.y() >= BoardSizes::BoardHeight - BoardSizes::FieldHeight
+            ) {
+                addMove(new PromotionMove(this, middle));
+            }
+            else {
+                addMove(new Move(this, middle));
+            }
+
+            // second middle, move only
+            if(m_firstMove &&
+               checkField(secondMiddle, this, m_scene) == FieldState::Empty &&
+               !m_king->inCheckAfterMove(secondMiddle, m_lastPos)
+            ) {
+                addMove(new EnPassantMove(this, secondMiddle));
+            }
+        }
+    }
+
+    // ordinary attack
+    {
+        const std::array<QPointF, 2> ordinaryAttack{{
+            {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() + direction}, // left
+            {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() + direction}  // right
+        }};
+
+        for(const auto& point : ordinaryAttack) {
+            auto state = checkField(point, this, m_scene);
+
+            if(state == FieldState::Enemy &&
+               !m_king->inCheckAfterMove(point, m_lastPos)
+            ) {
+                if(point.y() <  BoardSizes::FieldHeight ||
+                   point.y() >= BoardSizes::BoardHeight - BoardSizes::FieldHeight
+                ) {
+                    addMove(new PromotionAttack(this, state.piece));
+                }
+                else {
+                    addMove(new Attack(this, state.piece));
+                }
+            }
+        }
+    }
+
+    // en passant
+    {
+        const std::array<std::array<QPointF, 2>, 2> epMoves{{
+            {{
+                {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y()}, // left ep attack
+                {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() + direction} // left ep dest
+            }},
+            {{
+                {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y()}, // right ep attack
+                {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() + direction} // right ep dest
+            }}
+        }};
+
+        for(const auto& points : epMoves) {
+            auto attackedPosStatus    = checkField(points[0], this, m_scene); // pos of enemy
+            auto destinationPosStatus = checkField(points[1], this, m_scene);
+
+            if(destinationPosStatus == FieldState::Empty &&
+               attackedPosStatus == FieldState::Enemy &&
+               attackedPosStatus.piece->m_type == PieceType::Pawn &&
+               static_cast<Pawn*>(attackedPosStatus.piece)->m_enPassant &&
+               !m_king->inCheckAfterMove(points[1], {m_lastPos, points[0]})
+            ) {
+                addMove(new EnPassantAttack(this, attackedPosStatus.piece, points[1]));
+            }
+        }
+    }
+
+    return m_moves.size();
 }
 
 void Pawn::promote() {
@@ -558,130 +820,28 @@ void Pawn::promote() {
                                                GameStatus::Black::pieces;
 
     pieces.erase(std::find(std::begin(pieces), std::end(pieces), this));
-    m_scene->removeItem(this);
-
-
-    pieces.push_back(newPiece);
-    m_scene->addItem(newPiece);
 
     // scene no longer owns this piece
     GameStatus::promotedPieces.emplace_back(this);
-}
+    m_scene->removeItem(this);
 
-size_t Pawn::findValidMoves() noexcept {
-    const qreal direction = m_player == Player::White ? -BoardSizes::FieldHeight :
-                                                        BoardSizes::FieldHeight;
-
-    const QPointF middle { m_lastPos.x(),                          m_lastPos.y() + direction },
-            secondMiddle { middle.x(),                             middle.y()    + direction },
-            left         { m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() + direction },
-            leftEPAttack { m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() },
-            leftEPDest   { m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() + direction },
-            right        { m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() + direction },
-            rightEPAttack{ m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() },
-            rightEPDest  { m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() + direction };
-
-
-    // middle, move only
-    {
-        if(checkField(middle, this, m_scene) == FieldState::Empty &&
-           !m_king->inCheckAfterMove(middle, m_lastPos)
-        ) {
-            // if last field, save as promotion
-            if(middle.y() <  BoardSizes::FieldHeight ||
-               middle.y() >= BoardSizes::BoardHeight - BoardSizes::FieldHeight)
-            {
-                addMove(new PromotionMove(this, middle));
-            }
-            else {
-                addMove(new Move(this, middle));
-            }
-
-            // second middle, move only
-            if(m_firstMove &&
-               checkField(secondMiddle, this, m_scene) == FieldState::Empty &&
-               !m_king->inCheckAfterMove(secondMiddle, m_lastPos)
-            ) {
-                addMove(new EnPassantMove(this, secondMiddle));
-            }
-        }
-    }
-
-    // left, attack only
-    {
-        auto state = checkField(left, this, m_scene);
-
-        if(state == FieldState::Enemy &&
-           !m_king->inCheckAfterMove(left, m_lastPos)
-        ) {
-            if(left.y() <  BoardSizes::FieldHeight ||
-               left.y() >= BoardSizes::BoardHeight - BoardSizes::FieldHeight)
-            {
-                addMove(new PromotionAttack(this, state.piece));
-            }
-            else {
-                addMove(new Attack(this, state.piece));
-            }
-        }
-    }
-
-    // left en passant, attack only
-    {
-        auto attackedPosStatus    = checkField(leftEPAttack, this, m_scene); // pos of enemy
-        auto destinationPosStatus = checkField(leftEPDest,   this, m_scene);
-
-        if(destinationPosStatus == FieldState::Empty &&
-           attackedPosStatus == FieldState::Enemy &&
-           attackedPosStatus.piece->m_type == PieceType::Pawn &&
-           static_cast<Pawn*>(attackedPosStatus.piece)->m_enPassant &&
-           !m_king->inCheckAfterMove(leftEPDest, {m_lastPos, leftEPAttack})
-        ) {
-            addMove(new EnPassantAttack(this, attackedPosStatus.piece, leftEPDest));
-        }
-    }
-
-    // right, attack only
-    {
-        auto state = checkField(right, this, m_scene);
-
-        if(state == FieldState::Enemy &&
-           !m_king->inCheckAfterMove(right, m_lastPos)
-        ) {
-            if(right.y() <  BoardSizes::FieldHeight ||
-               right.y() >= BoardSizes::BoardHeight - BoardSizes::FieldHeight)
-            {
-                addMove(new PromotionAttack(this, state.piece));
-            }
-            else {
-                addMove(new Attack(this, state.piece));
-            }
-        }
-    }
-
-    // right en passant, attack only
-    {
-        auto attackedPosStatus    = checkField(rightEPAttack, this, m_scene); // pos of enemy
-        auto destinationPosStatus = checkField(rightEPDest, this, m_scene);
-
-        if(destinationPosStatus == FieldState::Empty &&
-           attackedPosStatus == FieldState::Enemy &&
-           attackedPosStatus.piece->m_type == PieceType::Pawn &&
-           static_cast<Pawn*>(attackedPosStatus.piece)->m_enPassant &&
-           !m_king->inCheckAfterMove(rightEPDest, {m_lastPos, rightEPAttack})
-        ) {
-            addMove(new EnPassantAttack(this, attackedPosStatus.piece, rightEPDest));
-        }
-    }
-
-    return m_moves.size();
+    m_scene->addItem(newPiece);
+    pieces.push_back(newPiece);
 }
 
 //
 
-Knight::Knight(const QPixmap& t_pixMap, const QPointF& t_point,
-               Player t_player, QGraphicsScene* t_scene, bool t_firstMove)
-        : ChessPiece(t_pixMap, PieceType::Knight,
-                     t_point, t_player, t_scene, t_firstMove)
+Knight::Knight(const QPixmap&  t_pixMap,
+               const QPointF&  t_point,
+               Player          t_player,
+               QGraphicsScene* t_scene,
+               bool            t_firstMove)
+        : ChessPiece(t_pixMap,
+                     PieceType::Knight,
+                     t_point,
+                     t_player,
+                     t_scene,
+                     t_firstMove)
 {
 }
 
@@ -694,7 +854,7 @@ bool Knight::canAttackField(const QPointF& t_targetPos,
     }
 
     // knight cannot be blocked, parameters ignored
-    std::array<const QPointF, 8> posToCheck{{
+    const std::array<QPointF, 8> posToCheck{{
             // top left
             {m_lastPos.x() - BoardSizes::FieldWidth,
              m_lastPos.y() - 2*BoardSizes::FieldHeight},
@@ -732,8 +892,8 @@ bool Knight::canAttackField(const QPointF& t_targetPos,
         auto state = checkField(pos, this, m_scene);
 
         if(state == FieldState::Enemy ||
-           state == FieldState::Empty)
-        {
+           state == FieldState::Empty
+        ) {
             return true;
         }
     }
@@ -750,7 +910,7 @@ bool Knight::canAttackField(const QPointF& t_targetPos,
     }
 
     // knight cannot be blocked, parameters ignored
-    std::array<const QPointF, 8> posToCheck{{
+    const std::array<QPointF, 8> posToCheck{{
             // top left
             {m_lastPos.x() - BoardSizes::FieldWidth,
              m_lastPos.y() - 2*BoardSizes::FieldHeight},
@@ -788,8 +948,8 @@ bool Knight::canAttackField(const QPointF& t_targetPos,
         auto state = checkField(pos, this, m_scene);
 
         if(state == FieldState::Enemy ||
-           state == FieldState::Empty)
-        {
+           state == FieldState::Empty
+        ) {
             return true;
         }
     }
@@ -798,7 +958,7 @@ bool Knight::canAttackField(const QPointF& t_targetPos,
 }
 
 bool Knight::haveValidMoves() const noexcept {
-    std::array<const QPointF, 8> posToCheck{{
+    const std::array<QPointF, 8> posToCheck{{
             // top left
             {m_lastPos.x() - BoardSizes::FieldWidth,
              m_lastPos.y() - 2*BoardSizes::FieldHeight},
@@ -832,8 +992,8 @@ bool Knight::haveValidMoves() const noexcept {
         auto state = checkField(pos, this, m_scene);
 
         if(state == FieldState::Friend ||
-           state == FieldState::InvalidField)
-        {
+           state == FieldState::InvalidField
+        ) {
             continue;
         }
 
@@ -846,7 +1006,7 @@ bool Knight::haveValidMoves() const noexcept {
 }
 
 size_t Knight::findValidMoves() noexcept {
-    std::array<const QPointF, 8> posToCheck{{
+    const std::array<QPointF, 8> posToCheck{{
             // top left
             {m_lastPos.x() - BoardSizes::FieldWidth,
              m_lastPos.y() - 2*BoardSizes::FieldHeight},
@@ -900,10 +1060,17 @@ size_t Knight::findValidMoves() noexcept {
 
 //
 
-Bishop::Bishop(const QPixmap& t_pixMap, const QPointF& t_point,
-               Player t_player, QGraphicsScene* t_scene, bool t_firstMove)
-    : ChessPiece(t_pixMap, PieceType::Bishop,
-                 t_point, t_player, t_scene, t_firstMove)
+Bishop::Bishop(const QPixmap&  t_pixMap,
+               const QPointF&  t_point,
+               Player          t_player,
+               QGraphicsScene* t_scene,
+               bool            t_firstMove)
+    : ChessPiece(t_pixMap,
+                 PieceType::Bishop,
+                 t_point,
+                 t_player,
+                 t_scene,
+                 t_firstMove)
 {
 }
 
@@ -913,14 +1080,6 @@ bool Bishop::canAttackField(const QPointF& t_targetPos,
 {
     if(m_lastPos == t_newDefenderPos) {
         return false;
-    }
-
-    // if target lies next to this piece return true
-    if(m_lastPos != t_targetPos &&
-       std::abs(m_lastPos.x() - t_targetPos.x()) <= BoardSizes::FieldWidth &&
-       std::abs(m_lastPos.y() - t_targetPos.y()) <= BoardSizes::FieldHeight)
-    {
-        return true;
     }
 
     // if not on diagonal relative to last pos
@@ -936,12 +1095,12 @@ bool Bishop::canAttackField(const QPointF& t_targetPos,
     // target on left side of the board
     if(t_targetPos.x() < m_lastPos.x()) {
         // left-top
-        if(t_targetPos.y() < m_lastPos.y()){
+        if(t_targetPos.y() < m_lastPos.y()) {
             QPointF leftTop{m_lastPos.x() - BoardSizes::FieldWidth,
                             m_lastPos.y() - BoardSizes::FieldHeight};
             while(leftTop.x() > t_targetPos.x() &&
-                  leftTop.y() > t_targetPos.y())
-            {
+                  leftTop.y() > t_targetPos.y()
+            ) {
                 if(leftTop != t_ignoredPos &&
                         (leftTop == t_newDefenderPos ||
                          checkField(leftTop, this, m_scene) != FieldState::Empty)
@@ -961,8 +1120,8 @@ bool Bishop::canAttackField(const QPointF& t_targetPos,
             QPointF leftBottom{m_lastPos.x() - BoardSizes::FieldWidth,
                                m_lastPos.y() + BoardSizes::FieldHeight};
             while(leftBottom.x() > t_targetPos.x() &&
-                  leftBottom.y() < t_targetPos.y())
-            {
+                  leftBottom.y() < t_targetPos.y()
+            ) {
                 if(leftBottom != t_ignoredPos &&
                         (leftBottom == t_newDefenderPos ||
                          checkField(leftBottom, this, m_scene) != FieldState::Empty)
@@ -985,8 +1144,8 @@ bool Bishop::canAttackField(const QPointF& t_targetPos,
             QPointF rightTop{m_lastPos.x() + BoardSizes::FieldWidth,
                              m_lastPos.y() - BoardSizes::FieldHeight};
             while(rightTop.x() < t_targetPos.x() &&
-                  rightTop.y() > t_targetPos.y())
-            {
+                  rightTop.y() > t_targetPos.y()
+            ) {
                 if(rightTop != t_ignoredPos &&
                         (rightTop == t_newDefenderPos ||
                          checkField(rightTop, this, m_scene) != FieldState::Empty)
@@ -1006,8 +1165,8 @@ bool Bishop::canAttackField(const QPointF& t_targetPos,
             QPointF rightBottom{m_lastPos.x() + BoardSizes::FieldWidth,
                                 m_lastPos.y() + BoardSizes::FieldHeight};
             while(rightBottom.x() < t_targetPos.x() &&
-                  rightBottom.y() < t_targetPos.y())
-            {
+                  rightBottom.y() < t_targetPos.y()
+            ) {
                 if(rightBottom != t_ignoredPos &&
                         (rightBottom == t_newDefenderPos ||
                          checkField(rightBottom, this, m_scene) != FieldState::Empty)
@@ -1051,8 +1210,8 @@ bool Bishop::canAttackField(const QPointF& t_targetPos,
             QPointF leftTop{m_lastPos.x() - BoardSizes::FieldWidth,
                             m_lastPos.y() - BoardSizes::FieldHeight};
             while(leftTop.x() > t_targetPos.x() &&
-                  leftTop.y() > t_targetPos.y())
-            {
+                  leftTop.y() > t_targetPos.y()
+            ) {
                 if(!::contains(t_ignoredPos, leftTop) &&
                         (leftTop == t_newDefenderPos ||
                          checkField(leftTop, this, m_scene) != FieldState::Empty)
@@ -1072,8 +1231,8 @@ bool Bishop::canAttackField(const QPointF& t_targetPos,
             QPointF leftBottom{m_lastPos.x() - BoardSizes::FieldWidth,
                                m_lastPos.y() + BoardSizes::FieldHeight};
             while(leftBottom.x() > t_targetPos.x() &&
-                  leftBottom.y() < t_targetPos.y())
-            {
+                  leftBottom.y() < t_targetPos.y()
+            ) {
                 if(!::contains(t_ignoredPos, leftBottom) &&
                         (leftBottom == t_newDefenderPos ||
                          checkField(leftBottom, this, m_scene) != FieldState::Empty)
@@ -1096,8 +1255,8 @@ bool Bishop::canAttackField(const QPointF& t_targetPos,
             QPointF rightTop{m_lastPos.x() + BoardSizes::FieldWidth,
                              m_lastPos.y() - BoardSizes::FieldHeight};
             while(rightTop.x() < t_targetPos.x() &&
-                  rightTop.y() > t_targetPos.y())
-            {
+                  rightTop.y() > t_targetPos.y()
+            ) {
                 if(!::contains(t_ignoredPos, rightTop) &&
                         (rightTop == t_newDefenderPos ||
                          checkField(rightTop, this, m_scene) != FieldState::Empty)
@@ -1117,8 +1276,8 @@ bool Bishop::canAttackField(const QPointF& t_targetPos,
             QPointF rightBottom{m_lastPos.x() + BoardSizes::FieldWidth,
                                 m_lastPos.y() + BoardSizes::FieldHeight};
             while(rightBottom.x() < t_targetPos.x() &&
-                  rightBottom.y() < t_targetPos.y())
-            {
+                  rightBottom.y() < t_targetPos.y()
+            ) {
                 if(!::contains(t_ignoredPos, rightBottom) &&
                         (rightBottom == t_newDefenderPos ||
                          checkField(rightBottom, this, m_scene) != FieldState::Empty)
@@ -1144,8 +1303,8 @@ bool Bishop::haveValidMoves() const noexcept {
                                 m_lastPos.y() - BoardSizes::FieldHeight};
 
         while(leftTopDiagonal.x() >= 0 &&
-              leftTopDiagonal.y() >= 0)
-        {
+              leftTopDiagonal.y() >= 0
+        ) {
             if(!m_king->inCheckAfterMove(leftTopDiagonal, m_lastPos)) {
                 return true;
             }
@@ -1160,8 +1319,8 @@ bool Bishop::haveValidMoves() const noexcept {
                                     m_lastPos.y() + BoardSizes::FieldHeight};
 
         while(rightBottomDiagonal.x() < BoardSizes::BoardWidth &&
-              rightBottomDiagonal.y() < BoardSizes::BoardHeight)
-        {
+              rightBottomDiagonal.y() < BoardSizes::BoardHeight
+        ) {
             if(!m_king->inCheckAfterMove(rightBottomDiagonal, m_lastPos)) {
                 return true;
             }
@@ -1176,8 +1335,8 @@ bool Bishop::haveValidMoves() const noexcept {
                                  m_lastPos.y() - BoardSizes::FieldHeight};
 
         while(rightTopDiagonal.x() < BoardSizes::BoardWidth &&
-              rightTopDiagonal.y() >= 0)
-        {
+              rightTopDiagonal.y() >= 0
+        ) {
             if(!m_king->inCheckAfterMove(rightTopDiagonal, m_lastPos)) {
                 return true;
             }
@@ -1192,8 +1351,8 @@ bool Bishop::haveValidMoves() const noexcept {
                                    m_lastPos.y() + BoardSizes::FieldHeight};
 
         while(leftBottomDiagonal.x() >= 0 &&
-              leftBottomDiagonal.y() < BoardSizes::BoardHeight)
-        {
+              leftBottomDiagonal.y() < BoardSizes::BoardHeight
+        ) {
             if(!m_king->inCheckAfterMove(leftBottomDiagonal, m_lastPos)) {
                 return true;
             }
@@ -1213,8 +1372,8 @@ size_t Bishop::findValidMoves() noexcept {
                                 m_lastPos.y() - BoardSizes::FieldHeight};
 
         while(leftTopDiagonal.x() >= 0 &&
-              leftTopDiagonal.y() >= 0)
-        {
+              leftTopDiagonal.y() >= 0
+        ) {
             if(!validateField(leftTopDiagonal)) {
                 break;
             }
@@ -1229,8 +1388,8 @@ size_t Bishop::findValidMoves() noexcept {
                                     m_lastPos.y() + BoardSizes::FieldHeight};
 
         while(rightBottomDiagonal.x() < BoardSizes::BoardWidth &&
-              rightBottomDiagonal.y() < BoardSizes::BoardHeight)
-        {
+              rightBottomDiagonal.y() < BoardSizes::BoardHeight
+        ) {
             if(!validateField(rightBottomDiagonal)) {
                 break;
             }
@@ -1245,8 +1404,8 @@ size_t Bishop::findValidMoves() noexcept {
                                  m_lastPos.y() - BoardSizes::FieldHeight};
 
         while(rightTopDiagonal.x() < BoardSizes::BoardWidth &&
-              rightTopDiagonal.y() >= 0)
-        {
+              rightTopDiagonal.y() >= 0
+        ) {
             if(!validateField(rightTopDiagonal)) {
                 break;
             }
@@ -1261,8 +1420,8 @@ size_t Bishop::findValidMoves() noexcept {
                                    m_lastPos.y() + BoardSizes::FieldHeight};
 
         while(leftBottomDiagonal.x() >= 0 &&
-              leftBottomDiagonal.y() < BoardSizes::BoardHeight)
-        {
+              leftBottomDiagonal.y() < BoardSizes::BoardHeight
+        ) {
             if(!validateField(leftBottomDiagonal)) {
                 break;
             }
@@ -1299,10 +1458,17 @@ bool Bishop::validateField(const QPointF& t_field) noexcept {
 
 //
 
-Rook::Rook(const QPixmap& t_pixMap, const QPointF& t_point,
-           Player t_player, QGraphicsScene* t_scene, bool t_firstMove)
-    : ChessPiece(t_pixMap, PieceType::Rook,
-                 t_point, t_player, t_scene, t_firstMove)
+Rook::Rook(const QPixmap&  t_pixMap,
+           const QPointF&  t_point,
+           Player          t_player,
+           QGraphicsScene* t_scene,
+           bool            t_firstMove)
+    : ChessPiece(t_pixMap,
+                 PieceType::Rook,
+                 t_point,
+                 t_player,
+                 t_scene,
+                 t_firstMove)
 {
 }
 
@@ -1318,10 +1484,10 @@ bool Rook::canAttackField(const QPointF& t_targetPos,
     // the first field between lastPos and t_targetPos
 
     // vertical
-    if(t_targetPos.x() == m_lastPos.x()) {
+    if(areEqual(t_targetPos.x(), m_lastPos.x())) {
         // top
         if(t_targetPos.y() < m_lastPos.y()) {
-            QPointF top = {m_lastPos.x(), m_lastPos.y() - BoardSizes::FieldHeight};
+            QPointF top{ m_lastPos.x(), m_lastPos.y() - BoardSizes::FieldHeight };
 
             while(top.y() > t_targetPos.y()) {
                 if(top != t_ignoredPos &&
@@ -1339,7 +1505,7 @@ bool Rook::canAttackField(const QPointF& t_targetPos,
 
         // bottom
         else if(t_targetPos.y() > m_lastPos.y()) {
-            QPointF bottom = {m_lastPos.x(), m_lastPos.y() + BoardSizes::FieldHeight};
+            QPointF bottom{ m_lastPos.x(), m_lastPos.y() + BoardSizes::FieldHeight };
 
             while(bottom.y() < t_targetPos.y()) {
                 if(bottom != t_ignoredPos &&
@@ -1357,10 +1523,10 @@ bool Rook::canAttackField(const QPointF& t_targetPos,
     }
 
     // horizontal
-    else if(t_targetPos.y() == m_lastPos.y()) {
+    else if(areEqual(t_targetPos.y(), m_lastPos.y())) {
         // left
         if(t_targetPos.x() < m_lastPos.x()) {
-            QPointF left = {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y()};
+            QPointF left{ m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() };
 
             while(left.x() > t_targetPos.x()) {
                 if(left != t_ignoredPos &&
@@ -1378,7 +1544,7 @@ bool Rook::canAttackField(const QPointF& t_targetPos,
 
         // right
         else if(t_targetPos.x() > m_lastPos.x()) {
-            QPointF right = {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y()};
+            QPointF right{ m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() };
 
             while(right.x() < t_targetPos.x()) {
                 if(right != t_ignoredPos &&
@@ -1410,10 +1576,10 @@ bool Rook::canAttackField(const QPointF& t_targetPos,
     // the first field between lastPos and t_targetPos
 
     // vertical
-    if(t_targetPos.x() == m_lastPos.x()) {
+    if(areEqual(t_targetPos.x(), m_lastPos.x())) {
         // top
         if(t_targetPos.y() < m_lastPos.y()) {
-            QPointF top = {m_lastPos.x(), m_lastPos.y() - BoardSizes::FieldHeight};
+            QPointF top{ m_lastPos.x(), m_lastPos.y() - BoardSizes::FieldHeight };
 
             while(top.y() > t_targetPos.y()) {
                 if(!::contains(t_ignoredPos, top) &&
@@ -1431,7 +1597,7 @@ bool Rook::canAttackField(const QPointF& t_targetPos,
 
         // bottom
         else if(t_targetPos.y() < m_lastPos.y()) {
-            QPointF bottom = {m_lastPos.x(), m_lastPos.y() + BoardSizes::FieldHeight};
+            QPointF bottom{ m_lastPos.x(), m_lastPos.y() + BoardSizes::FieldHeight };
 
             while(bottom.y() < t_targetPos.y()) {
                 if(!::contains(t_ignoredPos, bottom) &&
@@ -1449,10 +1615,10 @@ bool Rook::canAttackField(const QPointF& t_targetPos,
     }
 
     // horizontal
-    else if(t_targetPos.y() == m_lastPos.y()) {
+    else if(areEqual(t_targetPos.y(), m_lastPos.y())) {
         // left
         if(t_targetPos.x() < m_lastPos.x()) {
-            QPointF left = {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y()};
+            QPointF left{ m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() };
 
             while(left.x() > t_targetPos.x()) {
                 if(!::contains(t_ignoredPos, left) &&
@@ -1470,7 +1636,7 @@ bool Rook::canAttackField(const QPointF& t_targetPos,
 
         // right
         else if(t_targetPos.x() > m_lastPos.x()) {
-            QPointF right = {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y()};
+            QPointF right{ m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() };
 
             while(right.x() < t_targetPos.x()) {
                 if(!::contains(t_ignoredPos, right) &&
@@ -1630,10 +1796,17 @@ bool Rook::validateField(const QPointF& t_field) noexcept {
 
 //
 
-Queen::Queen(const QPixmap& t_pixMap, const QPointF& t_point,
-             Player t_player, QGraphicsScene* t_scene, bool t_firstMove)
-    : ChessPiece(t_pixMap, PieceType::Queen,
-                 t_point, t_player, t_scene, t_firstMove)
+Queen::Queen(const QPixmap&  t_pixMap,
+             const QPointF&  t_point,
+             Player          t_player,
+             QGraphicsScene* t_scene,
+             bool            t_firstMove)
+    : ChessPiece(t_pixMap,
+                 PieceType::Queen,
+                 t_point,
+                 t_player,
+                 t_scene,
+                 t_firstMove)
 {
 }
 
@@ -1649,10 +1822,10 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
     // the first field between lastPos and t_targetPos
 
     // vertical
-    if(t_targetPos.x() == m_lastPos.x()) {
+    if(areEqual(t_targetPos.x(), m_lastPos.x())) {
         // top
         if(t_targetPos.y() < m_lastPos.y()) {
-            QPointF top = {m_lastPos.x(), m_lastPos.y() - BoardSizes::FieldHeight};
+            QPointF top{ m_lastPos.x(), m_lastPos.y() - BoardSizes::FieldHeight };
 
             while(top.y() > t_targetPos.y()) {
                 if(top != t_ignoredPos &&
@@ -1670,7 +1843,7 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
 
         // bottom
         else if(t_targetPos.y() > m_lastPos.y()) {
-            QPointF bottom = {m_lastPos.x(), m_lastPos.y() + BoardSizes::FieldHeight};
+            QPointF bottom{ m_lastPos.x(), m_lastPos.y() + BoardSizes::FieldHeight };
 
             while(bottom.y() < t_targetPos.y()) {
                 if(bottom != t_ignoredPos &&
@@ -1688,10 +1861,10 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
     }
 
     // horizontal
-    else if(t_targetPos.y() == m_lastPos.y()) {
+    else if(areEqual(t_targetPos.y(), m_lastPos.y())) {
         // left
         if(t_targetPos.x() < m_lastPos.x()) {
-            QPointF left = {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y()};
+            QPointF left{ m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() };
 
             while(left.x() > t_targetPos.x()) {
                 if(left != t_ignoredPos &&
@@ -1709,7 +1882,7 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
 
         // right
         else if(t_targetPos.x() > m_lastPos.x()) {
-            QPointF right = {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y()};
+            QPointF right{ m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() };
 
             while(right.x() < t_targetPos.x()) {
                 if(right != t_ignoredPos &&
@@ -1740,8 +1913,8 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
             QPointF leftTop{m_lastPos.x() - BoardSizes::FieldWidth,
                             m_lastPos.y() - BoardSizes::FieldHeight};
             while(leftTop.x() > t_targetPos.x() &&
-                  leftTop.y() > t_targetPos.y())
-            {
+                  leftTop.y() > t_targetPos.y()
+            ) {
                 if(leftTop != t_ignoredPos &&
                         (leftTop == t_newDefenderPos ||
                          checkField(leftTop, this, m_scene) != FieldState::Empty)
@@ -1761,8 +1934,8 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
             QPointF leftBottom{m_lastPos.x() - BoardSizes::FieldWidth,
                                m_lastPos.y() + BoardSizes::FieldHeight};
             while(leftBottom.x() > t_targetPos.x() &&
-                  leftBottom.y() < t_targetPos.y())
-            {
+                  leftBottom.y() < t_targetPos.y()
+            ) {
                 if(leftBottom != t_ignoredPos &&
                         (leftBottom == t_newDefenderPos ||
                          checkField(leftBottom, this, m_scene) != FieldState::Empty)
@@ -1785,8 +1958,8 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
             QPointF rightTop{m_lastPos.x() + BoardSizes::FieldWidth,
                              m_lastPos.y() - BoardSizes::FieldHeight};
             while(rightTop.x() < t_targetPos.x() &&
-                  rightTop.y() > t_targetPos.y())
-            {
+                  rightTop.y() > t_targetPos.y()
+            ) {
                 if(rightTop != t_ignoredPos &&
                         (rightTop == t_newDefenderPos ||
                          checkField(rightTop, this, m_scene) != FieldState::Empty)
@@ -1806,8 +1979,8 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
             QPointF rightBottom{m_lastPos.x() + BoardSizes::FieldWidth,
                                 m_lastPos.y() + BoardSizes::FieldHeight};
             while(rightBottom.x() < t_targetPos.x() &&
-                  rightBottom.y() < t_targetPos.y())
-            {
+                  rightBottom.y() < t_targetPos.y()
+            ) {
                 if(rightBottom != t_ignoredPos &&
                         (rightBottom == t_newDefenderPos ||
                          checkField(rightBottom, this, m_scene) != FieldState::Empty)
@@ -1838,10 +2011,10 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
     // the first field between lastPos and t_targetPos
 
     // vertical
-    if(t_targetPos.x() == m_lastPos.x()) {
+    if(areEqual(t_targetPos.x(), m_lastPos.x())) {
         // top
         if(t_targetPos.y() < m_lastPos.y()) {
-            QPointF top = {m_lastPos.x(), m_lastPos.y() - BoardSizes::FieldHeight};
+            QPointF top{ m_lastPos.x(), m_lastPos.y() - BoardSizes::FieldHeight };
 
             while(top.y() > t_targetPos.y()) {
                 if(!::contains(t_ignoredPos, top) &&
@@ -1859,7 +2032,7 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
 
         // bottom
         else if(t_targetPos.y() < m_lastPos.y()) {
-            QPointF bottom = {m_lastPos.x(), m_lastPos.y() + BoardSizes::FieldHeight};
+            QPointF bottom{ m_lastPos.x(), m_lastPos.y() + BoardSizes::FieldHeight };
 
             while(bottom.y() < t_targetPos.y()) {
                 if(!::contains(t_ignoredPos, bottom) &&
@@ -1877,10 +2050,10 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
     }
 
     // horizontal
-    else if(t_targetPos.y() == m_lastPos.y()) {
+    else if(areEqual(t_targetPos.y(), m_lastPos.y())) {
         // left
         if(t_targetPos.x() < m_lastPos.x()) {
-            QPointF left = {m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y()};
+            QPointF left{ m_lastPos.x() - BoardSizes::FieldWidth, m_lastPos.y() };
 
             while(left.x() > t_targetPos.x()) {
                 if(!::contains(t_ignoredPos, left) &&
@@ -1898,7 +2071,7 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
 
         // right
         else if(t_targetPos.x() > m_lastPos.x()) {
-            QPointF right = {m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y()};
+            QPointF right{ m_lastPos.x() + BoardSizes::FieldWidth, m_lastPos.y() };
 
             while(right.x() < t_targetPos.x()) {
                 if(!::contains(t_ignoredPos, right) &&
@@ -1929,8 +2102,8 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
             QPointF leftTop{m_lastPos.x() - BoardSizes::FieldWidth,
                             m_lastPos.y() - BoardSizes::FieldHeight};
             while(leftTop.x() > t_targetPos.x() &&
-                  leftTop.y() > t_targetPos.y())
-            {
+                  leftTop.y() > t_targetPos.y()
+            ) {
                 if(!::contains(t_ignoredPos, leftTop) &&
                         (leftTop == t_newDefenderPos ||
                          checkField(leftTop, this, m_scene) != FieldState::Empty)
@@ -1950,8 +2123,8 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
             QPointF leftBottom{m_lastPos.x() - BoardSizes::FieldWidth,
                                m_lastPos.y() + BoardSizes::FieldHeight};
             while(leftBottom.x() > t_targetPos.x() &&
-                  leftBottom.y() < t_targetPos.y())
-            {
+                  leftBottom.y() < t_targetPos.y()
+            ) {
                 if(!::contains(t_ignoredPos, leftBottom) &&
                         (leftBottom == t_newDefenderPos ||
                          checkField(leftBottom, this, m_scene) != FieldState::Empty)
@@ -1974,8 +2147,8 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
             QPointF rightTop{m_lastPos.x() + BoardSizes::FieldWidth,
                              m_lastPos.y() - BoardSizes::FieldHeight};
             while(rightTop.x() < t_targetPos.x() &&
-                  rightTop.y() > t_targetPos.y())
-            {
+                  rightTop.y() > t_targetPos.y()
+            ) {
                 if(!::contains(t_ignoredPos, rightTop) &&
                         (rightTop == t_newDefenderPos ||
                          checkField(rightTop, this, m_scene) != FieldState::Empty)
@@ -1995,8 +2168,8 @@ bool Queen::canAttackField(const QPointF& t_targetPos,
             QPointF rightBottom{m_lastPos.x() + BoardSizes::FieldWidth,
                                 m_lastPos.y() + BoardSizes::FieldHeight};
             while(rightBottom.x() < t_targetPos.x() &&
-                  rightBottom.y() < t_targetPos.y())
-            {
+                  rightBottom.y() < t_targetPos.y()
+            ) {
                 if(!::contains(t_ignoredPos, rightBottom) &&
                         (rightBottom == t_newDefenderPos ||
                          checkField(rightBottom, this, m_scene) != FieldState::Empty)
@@ -2022,8 +2195,8 @@ bool Queen::haveValidMoves() const noexcept {
                                 m_lastPos.y() - BoardSizes::FieldHeight};
 
         while(leftTopDiagonal.x() >= 0 &&
-              leftTopDiagonal.y() >= 0)
-        {
+              leftTopDiagonal.y() >= 0
+        ) {
             if(!m_king->inCheckAfterMove(leftTopDiagonal, m_lastPos)) {
                 return true;
             }
@@ -2038,8 +2211,8 @@ bool Queen::haveValidMoves() const noexcept {
                                     m_lastPos.y() + BoardSizes::FieldHeight};
 
         while(rightBottomDiagonal.x() < BoardSizes::BoardWidth &&
-              rightBottomDiagonal.y() < BoardSizes::BoardHeight)
-        {
+              rightBottomDiagonal.y() < BoardSizes::BoardHeight
+        ) {
             if(!m_king->inCheckAfterMove(rightBottomDiagonal, m_lastPos)) {
                 return true;
             }
@@ -2054,8 +2227,8 @@ bool Queen::haveValidMoves() const noexcept {
                                  m_lastPos.y() - BoardSizes::FieldHeight};
 
         while(rightTopDiagonal.x() < BoardSizes::BoardWidth &&
-              rightTopDiagonal.y() >= 0)
-        {
+              rightTopDiagonal.y() >= 0
+        ) {
             if(!m_king->inCheckAfterMove(rightTopDiagonal, m_lastPos)) {
                 return true;
             }
@@ -2070,8 +2243,8 @@ bool Queen::haveValidMoves() const noexcept {
                                    m_lastPos.y() + BoardSizes::FieldHeight};
 
         while(leftBottomDiagonal.x() >= 0 &&
-              leftBottomDiagonal.y() < BoardSizes::BoardHeight)
-        {
+              leftBottomDiagonal.y() < BoardSizes::BoardHeight
+        ) {
             if(!m_king->inCheckAfterMove(leftBottomDiagonal, m_lastPos)) {
                 return true;
             }
@@ -2144,8 +2317,8 @@ size_t Queen::findValidMoves() noexcept {
                                 m_lastPos.y() - BoardSizes::FieldHeight};
 
         while(leftTopDiagonal.x() >= 0 &&
-              leftTopDiagonal.y() >= 0)
-        {
+              leftTopDiagonal.y() >= 0
+        ) {
             if(!validateField(leftTopDiagonal)) {
                 break;
             }
@@ -2160,8 +2333,8 @@ size_t Queen::findValidMoves() noexcept {
                                     m_lastPos.y() + BoardSizes::FieldHeight};
 
         while(rightBottomDiagonal.x() < BoardSizes::BoardWidth &&
-              rightBottomDiagonal.y() < BoardSizes::BoardHeight)
-        {
+              rightBottomDiagonal.y() < BoardSizes::BoardHeight
+        ) {
             if(!validateField(rightBottomDiagonal)) {
                 break;
             }
@@ -2176,8 +2349,8 @@ size_t Queen::findValidMoves() noexcept {
                                  m_lastPos.y() - BoardSizes::FieldHeight};
 
         while(rightTopDiagonal.x() < BoardSizes::BoardWidth &&
-              rightTopDiagonal.y() >= 0)
-        {
+              rightTopDiagonal.y() >= 0
+        ) {
             if(!validateField(rightTopDiagonal)) {
                 break;
             }
@@ -2192,8 +2365,8 @@ size_t Queen::findValidMoves() noexcept {
                                    m_lastPos.y() + BoardSizes::FieldHeight};
 
         while(leftBottomDiagonal.x() >= 0 &&
-              leftBottomDiagonal.y() < BoardSizes::BoardHeight)
-        {
+              leftBottomDiagonal.y() < BoardSizes::BoardHeight
+        ) {
             if(!validateField(leftBottomDiagonal)) {
                 break;
             }
@@ -2283,10 +2456,17 @@ bool Queen::validateField(const QPointF& t_field) noexcept {
 
 //
 
-King::King(const QPixmap& t_pixMap, const QPointF& t_point,
-           Player t_player, QGraphicsScene* t_scene, bool t_firstMove)
-    : ChessPiece(t_pixMap, PieceType::King,
-                 t_point, t_player, t_scene, t_firstMove)
+King::King(const QPixmap&  t_pixMap,
+           const QPointF&  t_point,
+           Player          t_player,
+           QGraphicsScene* t_scene,
+           bool            t_firstMove)
+    : ChessPiece(t_pixMap,
+                 PieceType::King,
+                 t_point,
+                 t_player,
+                 t_scene,
+                 t_firstMove)
 {
 }
 
@@ -2294,22 +2474,74 @@ bool King::canAttackField(const QPointF& t_targetPos,
                           const QPointF& t_newDefenderPos,
                           const QPointF& t_ignoredPos) const
 {
-    // if target lies next to this piece return true, else false
-    return std::abs(m_lastPos.x() - t_targetPos.x()) <= BoardSizes::FieldWidth &&
-           std::abs(m_lastPos.y() - t_targetPos.y()) <= BoardSizes::FieldHeight;
+    // if target is next to this piece return true, else false
+    bool isInRange = [&] {
+        const int xDistance{
+            static_cast<int>(std::abs(m_lastPos.x() - t_targetPos.x()))
+        };
+        const int yDistance{
+            static_cast<int>(std::abs(m_lastPos.y() - t_targetPos.y()))
+        };
+
+        bool inXRange{ xDistance <= static_cast<int>(BoardSizes::FieldWidth) };
+        bool inYRange{ yDistance <= static_cast<int>(BoardSizes::FieldHeight) };
+
+        return inXRange && inYRange &&
+               (xDistance != 0 || yDistance != 0);
+    }();
+    return isInRange;
 }
 
 bool King::canAttackField(const QPointF& t_targetPos,
                           const QPointF& t_newDefenderPos,
                           std::vector<QPointF>&& t_ignoredPos) const
 {
-    // if target lies next to this piece return true, else false
-    return std::abs(m_lastPos.x() - t_targetPos.x()) <= BoardSizes::FieldWidth &&
-           std::abs(m_lastPos.y() - t_targetPos.y()) <= BoardSizes::FieldHeight;
+    // if target is next to this piece return true, else false
+    bool isInRange = [&] {
+        const int xDistance{
+            static_cast<int>(std::abs(m_lastPos.x() - t_targetPos.x()))
+        };
+        const int yDistance{
+            static_cast<int>(std::abs(m_lastPos.y() - t_targetPos.y()))
+        };
+
+        bool inXRange{ xDistance <= static_cast<int>(BoardSizes::FieldWidth) };
+        bool inYRange{ yDistance <= static_cast<int>(BoardSizes::FieldHeight) };
+
+        return inXRange && inYRange &&
+               (xDistance != 0 || yDistance != 0);
+    }();
+    return isInRange;
+}
+
+bool King::inCheckAfterMove(const QPointF& t_newPos,
+                            const QPointF& t_oldPos) const noexcept
+{
+    return std::any_of(std::begin(m_enemyPieces),
+                       std::end(m_enemyPieces),
+                       [&](const ChessPiece* enemy) {
+                           if(enemy->m_lastPos == t_newPos)
+                               return false;
+                           return enemy->canAttackField(m_lastPos, t_newPos, t_oldPos);
+                       });
+}
+
+bool King::inCheckAfterMove(const QPointF& t_newPos,
+                            std::vector<QPointF>&& t_oldPos) const noexcept
+{
+    return std::any_of(std::begin(m_enemyPieces),
+                       std::end(m_enemyPieces),
+                       [&](const ChessPiece* enemy) {
+                           if(enemy->m_lastPos == t_newPos)
+                               return false;
+                           return enemy->canAttackField(m_lastPos,
+                                                        t_newPos,
+                       std::forward<decltype(t_oldPos)>(t_oldPos));
+                       });
 }
 
 bool King::haveValidMoves() const noexcept {
-    std::array<const QPointF, 8> posToCheck{{
+    const std::array<QPointF, 8> posToCheck{{
             // left-top
             {m_lastPos.x() - BoardSizes::FieldWidth,
              m_lastPos.y() - BoardSizes::FieldHeight},
@@ -2353,29 +2585,8 @@ bool King::haveValidMoves() const noexcept {
     return false;
 }
 
-bool King::inCheckAfterMove(const QPointF& t_newPos,
-                            const QPointF& t_oldPos) const noexcept
-{
-    return std::any_of(std::begin(m_enemyPieces),
-                       std::end(m_enemyPieces),
-                       [&](const ChessPiece* enemy) {
-                           return enemy->canAttackField(m_lastPos, t_newPos, t_oldPos);
-                       });
-}
-
-bool King::inCheckAfterMove(const QPointF& t_newPos,
-                            std::vector<QPointF>&& t_oldPos) const noexcept
-{
-    return std::any_of(std::begin(m_enemyPieces),
-                       std::end(m_enemyPieces),
-                       [&](const ChessPiece* enemy) {
-                           return enemy->canAttackField(m_lastPos, t_newPos,
-                                                        std::forward<decltype(t_oldPos)>(t_oldPos));
-                       });
-}
-
 size_t King::findValidMoves() noexcept {
-    std::array<const QPointF, 8> posToCheck{{
+    const std::array<QPointF, 8> posToCheck{{
             // left-top
             {m_lastPos.x() - BoardSizes::FieldWidth,
              m_lastPos.y() - BoardSizes::FieldHeight},

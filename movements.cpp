@@ -1,8 +1,9 @@
 #include "movements.h"
+#include "chess_namespaces.h"
+#include "chesspiece.h"
 
-
-Movement::Movement(const QPointF& t_point, MoveType t_type) noexcept
-    : m_coordinates(t_point), type(t_type)
+Movement::Movement(const QPointF& t_point, const MoveType t_type) noexcept
+    : m_coordinates(t_point), m_type(t_type)
 {
 }
 
@@ -18,28 +19,49 @@ bool operator !=(const std::unique_ptr<Movement>& t_move,
     return t_coordinates != t_move->m_coordinates;
 }
 
-void AttackingType::removePiece(ChessPiece*& t_enemy)
-{
-    t_enemy->m_scene->removeItem(t_enemy);
+void Movement::movePiece(ChessPiece* t_piece, QPointF t_dest)  const noexcept {
+    if(t_piece->m_type == PieceType::Pawn) {
+        GameStatus::uselessMoves = 0;
+    }
+    else {
+        ++GameStatus::uselessMoves;
+    }
 
-    auto& pieces = t_enemy->m_player == Player::White ? GameStatus::White::pieces :
-                                                      GameStatus::Black::pieces;
+    t_piece->setPos(t_dest);
+    t_piece->m_lastPos = t_dest;
+}
+
+void Movement::movePiece(ChessPiece* t_fPiece, QPointF t_fDest,
+                         ChessPiece* t_sPiece, QPointF t_sDest) const noexcept
+{
+    ++GameStatus::uselessMoves;
+
+    t_fPiece->setPos(t_fDest);
+    t_fPiece->m_lastPos = t_fDest;
+
+    t_sPiece->setPos(t_sDest);
+    t_sPiece->m_lastPos = t_sDest;
+}
+
+void AttackingType::removePiece(ChessPiece* t_enemy) {
+    GameStatus::uselessMoves = 0;
+
+    auto& pieces = t_enemy->m_player == Player::White ?
+                            GameStatus::White::pieces :
+                            GameStatus::Black::pieces;
     const auto it = std::find(std::begin(pieces),
                               std::end(pieces),
                               t_enemy);
     if(it != std::end(pieces)) {
         pieces.erase(it);
     }
-    else {
-        throw ("culdn't find piece");
-    }
 
+    t_enemy->m_scene->removeItem(t_enemy);
     delete t_enemy; // neccessary, as no longer owned by scene
 }
 
 void Move::exec() {
-    m_self->setPos(m_moveDest);
-    m_self->m_lastPos = m_moveDest;
+    movePiece(m_self, m_moveDest);
 }
 
 const QBrush& Move::getHightlightColor() const noexcept {
@@ -47,15 +69,15 @@ const QBrush& Move::getHightlightColor() const noexcept {
 }
 
 Move::Move(ChessPiece* t_self, const QPointF& t_moveDest) noexcept
-    : Movement(m_moveDest, MoveType::Move), m_self(t_self), m_moveDest(t_moveDest)
+    : Movement(m_moveDest, MoveType::Move),
+      m_self(t_self), m_moveDest(t_moveDest)
 {
 }
 
 
 // set pos of m_self to pos of m_enemy and delete m_enemy from board
 void Attack::exec() {
-    m_self->setPos(m_enemy->m_lastPos);
-    m_self->m_lastPos = m_enemy->m_lastPos;
+    movePiece(m_self, m_enemy->m_lastPos);
 
     removePiece(m_enemy);
 }
@@ -73,11 +95,7 @@ Attack::Attack(ChessPiece* t_self, ChessPiece* t_enemy) noexcept
 
 // set pos of m_self to pos of m_enemy and delete m_enemy from board
 void Castle::exec() {
-    m_king->setPos(m_kingDest);
-    m_king->m_lastPos = m_kingDest;
-
-    m_rook->setPos(m_rookDest);
-    m_rook->m_lastPos = m_rookDest;
+    movePiece(m_king, m_kingDest, m_rook, m_rookDest);
 }
 
 const QBrush& Castle::getHightlightColor() const noexcept {
@@ -94,9 +112,7 @@ Castle::Castle(ChessPiece* t_king, const QPointF& t_kingDest,
 
 
 void EnPassantAttack::exec() {
-    m_self->setPos(m_moveDest);
-    m_self->m_lastPos = m_moveDest;
-
+    movePiece(m_self, m_moveDest);
 
     removePiece(m_enemy);
 }
@@ -112,8 +128,8 @@ EnPassantAttack::EnPassantAttack(ChessPiece* t_self, ChessPiece* t_enemy, const 
 }
 
 void EnPassantMove::exec() {
-    m_self->setPos(m_moveDest);
-    m_self->m_lastPos = m_moveDest;
+    movePiece(m_self, m_moveDest);
+
     m_self->m_enPassant = true;
 }
 
@@ -128,8 +144,7 @@ EnPassantMove::EnPassantMove(Pawn* t_self, const QPointF& t_moveDest) noexcept
 }
 
 void PromotionMove::exec() {
-    m_self->setPos(m_moveDest);
-    m_self->m_lastPos = m_moveDest;
+    movePiece(m_self, m_moveDest);
 
     m_self->promote();
 }
@@ -146,8 +161,7 @@ PromotionMove::PromotionMove(Pawn* _self, const QPointF& _moveDest) noexcept
 
 
 void PromotionAttack::exec() {
-    m_self->setPos(m_enemy->m_lastPos);
-    m_self->m_lastPos = m_enemy->m_lastPos;
+    movePiece(m_self, m_enemy->m_lastPos);
 
     removePiece(m_enemy);
 

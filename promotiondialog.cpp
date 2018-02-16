@@ -1,8 +1,9 @@
 #include "promotiondialog.h"
 #include "ui_promotiondialog.h"
+
+#include "chess_namespaces.h"
 #include "chesspiece.h"
 #include "paths.h"
-#include "mainwindow.h"
 
 PromotionDialog::PromotionDialog(ChessPiece* piece, QWidget* parent) :
     QDialog(parent),
@@ -11,8 +12,8 @@ PromotionDialog::PromotionDialog(ChessPiece* piece, QWidget* parent) :
 {
     ui->setupUi(this);
 
-    const QSize iconSize{ BoardSizes::FieldWidth,
-                          BoardSizes::FieldHeight };
+    const QSize iconSize{ static_cast<int>(BoardSizes::FieldWidth),
+                          static_cast<int>(BoardSizes::FieldHeight) };
 
     setFixedSize(size());
     ui->Knight->setIconSize(iconSize);
@@ -32,43 +33,43 @@ PromotionDialog::PromotionDialog(ChessPiece* piece, QWidget* parent) :
                    ~Qt::WindowCloseButtonHint);
 
     if(m_piece->m_player == Player::White) {
-        ui->Knight->setIcon({ QPixmap{ Paths::White::knight }});
-        ui->Bishop->setIcon({ QPixmap{ Paths::White::bishop }});
-        ui->Rook->setIcon  ({ QPixmap{ Paths::White::rook   }});
-        ui->Queen->setIcon ({ QPixmap{ Paths::White::queen  }});
+        ui->Knight->setIcon({ QPixmap{ Paths::White::knight } });
+        ui->Bishop->setIcon({ QPixmap{ Paths::White::bishop } });
+        ui->Rook->setIcon  ({ QPixmap{ Paths::White::rook   } });
+        ui->Queen->setIcon ({ QPixmap{ Paths::White::queen  } });
     }
     else {
-        ui->Knight->setIcon({ QPixmap{ Paths::Black::knight }});
-        ui->Bishop->setIcon({ QPixmap{ Paths::Black::bishop }});
-        ui->Rook->setIcon  ({ QPixmap{ Paths::Black::rook   }});
-        ui->Queen->setIcon ({ QPixmap{ Paths::Black::queen  }});
+        ui->Knight->setIcon({ QPixmap{ Paths::Black::knight } });
+        ui->Bishop->setIcon({ QPixmap{ Paths::Black::bishop } });
+        ui->Rook->setIcon  ({ QPixmap{ Paths::Black::rook   } });
+        ui->Queen->setIcon ({ QPixmap{ Paths::Black::queen  } });
     }
 
     connect(
         ui->Knight, &QPushButton::clicked,
         [&]() {
-            type = PieceType::Knight;
+            m_type = PieceType::Knight;
             QDialog::close();
         });
 
     connect(
         ui->Bishop, &QPushButton::clicked,
         [&]() {
-            type = PieceType::Bishop;
+            m_type = PieceType::Bishop;
             QDialog::close();
         });
 
     connect(
         ui->Rook, &QPushButton::clicked,
         [&]() {
-            type = PieceType::Rook;
+            m_type = PieceType::Rook;
             QDialog::close();
         });
 
     connect(
         ui->Queen, &QPushButton::clicked,
         [&]() {
-            type = PieceType::Queen;
+            m_type = PieceType::Queen;
             QDialog::close();
         });
 }
@@ -79,5 +80,5 @@ PromotionDialog::~PromotionDialog()
 }
 
 PieceType PromotionDialog::getType() const noexcept {
-    return type;
+    return m_type;
 }

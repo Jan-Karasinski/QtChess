@@ -24,7 +24,7 @@ private:
     Ui::PromotionDialog *ui;
 
     ChessPiece* m_piece;
-    PieceType type;
+    PieceType m_type;
 };
 
 #endif // PROMOTIONDIALOG_H

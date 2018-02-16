@@ -1,25 +1,11 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "chesspiece.h"
 #include <QGraphicsRectItem>
-#include <QLinkedList>
+#include <QGraphicsItem>
+
+#include "chess_namespaces.h"
+#include "chesspiece.h"
 #include "paths.h"
-#include "promotiondialog.h"
-
-namespace GameStatus {
-    namespace White {
-        ::King* king = nullptr;
-        std::vector<ChessPiece*> pieces;
-    }
-    namespace Black {
-        ::King* king = nullptr;
-        std::vector<ChessPiece*> pieces;
-    }
-    Player currentPlayer = Player::White;
-    std::queue<std::pair<QGraphicsRectItem*, QBrush>> highlighted;
-
-    std::vector<std::unique_ptr<ChessPiece>> promotedPieces;
-}
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -30,26 +16,28 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->actionNew_game, &QAction::triggered,
             this, &MainWindow::newGame);
 
-    ui->graphicsView->setFixedHeight(BoardSizes::BoardHeight);
-    ui->graphicsView->setFixedWidth(BoardSizes::BoardWidth);
+    ui->graphicsView->setFixedHeight(static_cast<int>(BoardSizes::BoardHeight));
+    ui->graphicsView->setFixedWidth(static_cast<int>(BoardSizes::BoardWidth));
+
+    setFixedSize(size());
 
     DrawBoard();
 
     //PlacePieces();
 
-#if 10
+#if 1 // test
     PlacePieces({
-                 std::make_tuple(QPixmap{ Paths::Black::knight }, PieceType::Knight, index_to_point(5, 7), Player::Black),
-                 std::make_tuple(QPixmap{ Paths::Black::queen  }, PieceType::Queen,  index_to_point(4, 1), Player::Black),
-                 std::make_tuple(QPixmap{ Paths::Black::king   }, PieceType::King,   index_to_point(5, 1), Player::Black),
-                 std::make_tuple(QPixmap{ Paths::Black::bishop }, PieceType::Bishop, index_to_point(6, 1), Player::Black),
-                 std::make_tuple(QPixmap{ Paths::Black::pawn   }, PieceType::Pawn,   index_to_point(2, 5), Player::Black),
+    //std::make_tuple(QPixmap{ Paths::Black::knight }, PieceType::Knight, index_to_point(5, 7), Player::Black, 1),
+    std::make_tuple(QPixmap{ Paths::Black::queen  }, PieceType::Queen,  index_to_point(4, 1), Player::Black, 1),
+    std::make_tuple(QPixmap{ Paths::Black::king   }, PieceType::King,   index_to_point(5, 1), Player::Black, 1),
+    std::make_tuple(QPixmap{ Paths::Black::bishop }, PieceType::Bishop, index_to_point(6, 1), Player::Black, 1),
+    //std::make_tuple(QPixmap{ Paths::Black::pawn   }, PieceType::Pawn,   index_to_point(2, 5), Player::Black, 1),
 
-                 std::make_tuple(QPixmap{ Paths::White::king   }, PieceType::King,   index_to_point(5, 6), Player::White),
-                 std::make_tuple(QPixmap{ Paths::White::queen  }, PieceType::Queen,  index_to_point(4, 8), Player::White),
-                 std::make_tuple(QPixmap{ Paths::White::pawn   }, PieceType::Pawn,   index_to_point(1, 2), Player::White),
-                 std::make_tuple(QPixmap{ Paths::White::rook   }, PieceType::Rook,   index_to_point(8, 8), Player::White)
-               });
+    std::make_tuple(QPixmap{ Paths::White::king   }, PieceType::King,   index_to_point(5, 6), Player::White, 1),
+    std::make_tuple(QPixmap{ Paths::White::queen  }, PieceType::Queen,  index_to_point(4, 8), Player::White, 1),
+    std::make_tuple(QPixmap{ Paths::White::pawn   }, PieceType::Pawn,   index_to_point(1, 2), Player::White, 1),
+    //std::make_tuple(QPixmap{ Paths::White::rook   }, PieceType::Rook,   index_to_point(8, 8), Player::White, 1)
+    });
 #endif
 }
 
@@ -82,8 +70,13 @@ void MainWindow::DrawBoard() {
     }
 }
 
-void MainWindow::PlacePieces(std::vector<std::tuple<const QPixmap&,
-                             PieceType, const QPointF&, Player>> q)
+void MainWindow::PlacePieces(
+        std::vector<std::tuple<const QPixmap&,
+                               PieceType,
+                               const QPointF&,
+                               Player,
+                               bool // first move
+                             >>&& q)
 {
     auto* scene = ui->graphicsView->scene();
 
@@ -91,12 +84,15 @@ void MainWindow::PlacePieces(std::vector<std::tuple<const QPixmap&,
     constexpr const size_t piecetype = 1;
     constexpr const size_t qpointf   = 2;
     constexpr const size_t player    = 3;
+    constexpr const size_t firstMove = 4;
 
     for(const auto& row : q) {
         ChessPiece* item = ChessPiece::Create(std::get<pixmap>(row),
                                               std::get<piecetype>(row),
                                               std::get<qpointf>(row),
-                                              std::get<player>(row), scene);
+                                              std::get<player>(row),
+                                              scene,
+                                              std::get<firstMove>(row));
         if(std::get<player>(row) == Player::White) {
             if(std::get<piecetype>(row) == PieceType::King) {
                 GameStatus::White::king = static_cast<King*>(item);
@@ -181,7 +177,9 @@ void MainWindow::PlacePieces() {
     }
 }
 
-QPointF MainWindow::index_to_point(const qreal& x, const qreal& y) const noexcept {
+inline QPointF MainWindow::index_to_point(const qreal& x,
+                                          const qreal& y) const noexcept
+{
     return {(x-1) * BoardSizes::FieldWidth, (y-1) * BoardSizes::FieldHeight};
 }
 
@@ -209,4 +207,10 @@ void MainWindow::cleanUp() noexcept {
 void MainWindow::newGame() noexcept {
     cleanUp();
     PlacePieces();
+}
+
+void MainWindow::showEvent(QShowEvent* event) {
+    ui->graphicsView->centerOn({BoardSizes::BoardHeight / 2,
+                                BoardSizes::BoardWidth  / 2});
+    QWidget::showEvent(event);
 }

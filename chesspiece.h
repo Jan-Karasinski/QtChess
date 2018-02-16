@@ -2,6 +2,8 @@
 #define CHESSPIECE_H
 
 #include "mainwindow.h"
+#include "chess_namespaces.h"
+
 #include <QGraphicsPixmapItem>
 #include <QPointF>
 
@@ -9,14 +11,15 @@ struct Movement;
 
 using Container = decltype(GameStatus::White::pieces);
 
-QPointF getFixedPos(const QPointF&) noexcept;
-
 class ChessPiece : public QGraphicsPixmapItem
 {
 public:
-    ChessPiece(const QPixmap& t_pixMap, PieceType t_type,
-               const QPointF& t_point, Player t_player,
-               QGraphicsScene* t_scene, bool t_firstMove = true) noexcept;
+    ChessPiece(const QPixmap&  t_pixMap,
+               PieceType       t_type,
+               const QPointF&  t_point,
+               Player          t_player,
+               QGraphicsScene* t_scene,
+               bool            t_firstMove = true) noexcept;
 
     static ChessPiece* Create(const QPixmap&  t_pixMap,
                               PieceType       t_type,
@@ -33,11 +36,9 @@ public:
 
     virtual ~ChessPiece() = default;
 
-
-    // ignoredPos treated as empty
     virtual bool canAttackField(const QPointF& t_targetPos,
-                                const QPointF& t_newDefenderPos,
-                                const QPointF& t_ignoredPos) const = 0;
+                                const QPointF& t_newDefenderPos = {-1, -1},
+                                const QPointF& t_ignoredPos = {-1, -1}) const = 0;
 
     virtual bool canAttackField(const QPointF& t_targetPos,
                                 const QPointF& t_newDefenderPos,
@@ -45,15 +46,16 @@ public:
 
     virtual bool haveValidMoves() const noexcept = 0;
 
-    static inline void addMove(Movement* t_movetype);
+private:
+    std::pair<WinCondition, Player> isGameOver() const noexcept;
 
-    bool isGameOver() const noexcept;
-
-    static void checkmate() noexcept;
+    static void endGame(std::pair<WinCondition, Player> t_state) noexcept;
 
     static void nextTurn() noexcept;
 
 protected:
+    static inline void addMove(Movement* t_move);
+
     virtual void mousePressEvent(QGraphicsSceneMouseEvent* t_event);
     virtual void mouseReleaseEvent(QGraphicsSceneMouseEvent* t_event);
 
@@ -62,20 +64,21 @@ protected:
     void highlight();
     void dehighlight();
 
-// variables
 public:
     static constexpr const qreal defaultZValue = 10;
 
+    // valid moves of chosen piece
     static std::vector<std::unique_ptr<Movement>> m_moves;
 
     const PieceType m_type;
     QPointF         m_lastPos;
     const Player    m_player;
-    QGraphicsScene* m_scene;
+    QGraphicsScene* m_scene{ nullptr };
     bool            m_firstMove{ true };
 
-    King*& m_king{ m_player == Player::White ? GameStatus::White::king :
-                                               GameStatus::Black::king };
+    King* const& m_king{ m_player == Player::White ?
+                                        GameStatus::White::king :
+                                        GameStatus::Black::king };
     Container& m_enemyPieces{ m_player == Player::White ?
                                             GameStatus::Black::pieces :
                                             GameStatus::White::pieces };
@@ -88,8 +91,8 @@ public:
          Player t_player, QGraphicsScene* t_scene, bool t_firstMove = true);
 
     bool canAttackField(const QPointF& t_targetPos,
-                        const QPointF& t_newDefenderPos,
-                        const QPointF& t_ignoredPos) const override;
+                        const QPointF& t_newDefenderPos = {-1, -1},
+                        const QPointF& t_ignoredPos = {-1, -1}) const override;
 
     bool canAttackField(const QPointF& t_targetPos,
                         const QPointF& t_newDefenderPos,
@@ -114,8 +117,8 @@ public:
            Player t_player, QGraphicsScene* t_scene, bool t_firstMove = true);
 
     bool canAttackField(const QPointF& t_targetPos,
-                        const QPointF& t_newDefenderPos,
-                        const QPointF& t_ignoredPos) const override;
+                        const QPointF& t_newDefenderPos = {-1, -1},
+                        const QPointF& t_ignoredPos = {-1, -1}) const override;
 
     bool canAttackField(const QPointF& t_targetPos,
                         const QPointF& t_newDefenderPos,
@@ -134,8 +137,8 @@ public:
            Player t_player, QGraphicsScene* t_scene, bool t_firstMove = true);
 
     bool canAttackField(const QPointF& t_targetPos,
-                        const QPointF& t_newDefenderPos,
-                        const QPointF& t_ignoredPos) const override;
+                        const QPointF& t_newDefenderPos = {-1, -1},
+                        const QPointF& t_ignoredPos = {-1, -1}) const override;
 
     bool canAttackField(const QPointF& t_targetPos,
                         const QPointF& t_newDefenderPos,
@@ -156,8 +159,8 @@ public:
          Player t_player, QGraphicsScene* t_scene, bool t_firstMove = true);
 
     bool canAttackField(const QPointF& t_targetPos,
-                        const QPointF& t_newDefenderPos,
-                        const QPointF& t_ignoredPos) const override;
+                        const QPointF& t_newDefenderPos = {-1, -1},
+                        const QPointF& t_ignoredPos = {-1, -1}) const override;
 
     bool canAttackField(const QPointF& t_targetPos,
                         const QPointF& t_newDefenderPos,
@@ -178,8 +181,8 @@ public:
           Player t_player, QGraphicsScene* t_scene, bool t_firstMove = true);
 
     bool canAttackField(const QPointF& t_targetPos,
-                        const QPointF& t_newDefenderPos,
-                        const QPointF& t_ignoredPos) const override;
+                        const QPointF& t_newDefenderPos = {-1, -1},
+                        const QPointF& t_ignoredPos = {-1, -1}) const override;
 
     bool canAttackField(const QPointF& t_targetPos,
                         const QPointF& t_newDefenderPos,
@@ -200,8 +203,8 @@ public:
          Player t_player, QGraphicsScene* t_scene, bool t_firstMove = true);
 
     bool canAttackField(const QPointF& t_targetPos,
-                        const QPointF& t_newDefenderPos,
-                        const QPointF& t_ignoredPos) const override;
+                        const QPointF& t_newDefenderPos = {-1, -1},
+                        const QPointF& t_ignoredPos = {-1, -1}) const override;
 
     bool canAttackField(const QPointF& t_targetPos,
                         const QPointF& t_newDefenderPos,
